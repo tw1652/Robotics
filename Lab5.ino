@@ -1,10 +1,12 @@
 #include <mbed.h>
 
 using namespace mbed;
-//Serial.begin(9600);
 
 void setup() {
 }
+
+
+
 
 void loop() {
   I2C i2c(P0_31, P0_2); // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
@@ -13,6 +15,13 @@ void loop() {
   i2c.write(mux_addr, &mux_cmd, 1); // writes the mux_cmd to the addresss mux_addr  
   //the sensor is now on bus 0, address 0x80
   
+  //Read shift bit
+  char nn[1];
+  nn[1] = 0x35;
+  i2c.write(0x35, nn, 2);
+  char n;
+  i2c.read(0x35,nn, 2);
+
   char cmd[2];
   cmd[0] = 0x5E;
   cmd[1] = 0x00;
@@ -33,12 +42,9 @@ void loop() {
   wait_us(500000); // wait for sensor response
 
   i2c.write(0x80, distances, 2);
-  char dist_low = 0x5F;
+  char dist_low;
   i2c.read(0x80, distances, 2);//Read distance low
 
-
-  //Read shift bit
-  char n = 0x35;
   
   float dist = (dist_high*16)+(dist_low/(16/(2^n)));
 
@@ -48,5 +54,4 @@ void loop() {
   Serial.println(); // print blank line
   Serial.print("Distance in cm: ");
   Serial.println(dist, 2);//Print distance
-
 }
