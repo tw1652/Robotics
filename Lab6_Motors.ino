@@ -8,16 +8,51 @@ DigitalOut MotorADir(P0_4);
 PwmOut MotorBPWM(P1_2);
 DigitalOut MotorBDir(P0_5);
 
-void setup() {
+void setup(){
 }
 
+class Motor {
+  public:
+    int moveMotor(int motor, int direction, float speed);
+};
+
+int Motor::moveMotor(int motor, int direction, float speed) {
+
+  if (motor = 0) {
+    if (direction = 0) {
+      Serial.println("Motor A selected");
+      MotorAPWM.period(0.0001f); // Sets frequency to 100kHz
+      //set direction forward
+      MotorAPWM.write(speed); 
+    }
+    if (direction  = 1) {
+      Serial.println("Motor A selected");
+      MotorAPWM.period(0.0001f); // Sets frequency to 100kHz
+      //set direction backward
+      MotorAPWM.write(speed);   
+    }
+
+  }
+  if (motor = 1) {
+    if (direction = 0) {
+      Serial.println("Motor B selected");
+      MotorBPWM.period(0.0001f); // Sets frequency to 100kHz
+      //set direction forward
+      MotorBPWM.write(speed);
+    } 
+    if (direction = 1) {
+      Serial.println("Motor B selected");
+      MotorBPWM.period(0.0001f); // Sets frequency to 100kHz
+      //set direction backward
+      MotorBPWM.write(speed);
+    }
+  }
+  else {
+    Serial.println("re-enter motor number");
+  }
+}
 
 void loop() {
-  MotorAPWM.period(0.0001f); // 100kHz frequency
-  MotorBPWM.period(0.0001f); // 100kHz frequency
-  //Motor A on and off
-  MotorAPWM.write(0.50f); // 50% duty cycle 
-  //Motor B on and off
-  MotorBPWM.write(0.25f); // 25% duty cycle 
-  
+  Motor motor;
+  motor.moveMotor(0, 0, 0.5f);
 }
