@@ -6,8 +6,6 @@ void setup() {
 }
 
 
-
-
 void loop() {
   I2C i2c(P0_31, P0_2); // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
   const char mux_cmd = 0x01; // defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
@@ -16,42 +14,35 @@ void loop() {
   //the sensor is now on bus 0, address 0x80
   
   //Read shift bit
-  char nn[1];
-  nn[1] = 0x35;
-  i2c.write(0x35, nn, 2);
-  char n;
-  i2c.read(0x35,nn, 2);
-
-  char cmd[2];
-  cmd[0] = 0x5E;
-  cmd[1] = 0x00;
-  i2c.write(0x80, cmd, 1);
-  wait_us(500000); // wait for sensor response
-  i2c.read(0x80, cmd, 2);
+  //char n;
+  //i2c.read(0x35, &n, 1);
+  int n = 2.04;
 
   // ir sensor has a 7 bit slave address so must be shifted by 1 bit before passing
-  //how does that apply to this??
+  // how does that apply to this??
 
-  char distances[2];//array distances with 2 values
+  char distances[3];//array distances with 3 values
   distances[0] = 0x5E;//high distance
   distances[1] = 0x5F;//low distance
-  i2c.write(0x80, distances, 1);
-  char dist_high;
-  i2c.read(0x80, distances, 1);  //Read distance high 
-
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);// write register addresss to read from
   wait_us(500000); // wait for sensor response
+  i2c.read(0x80, distances, 3);  //Read distance high 
 
-  i2c.write(0x80, distances, 2);
-  char dist_low;
-  i2c.read(0x80, distances, 2);//Read distance low
+  float dist = ((distances[0]*16)+(distances[1]))/(16/(2^n));
 
-  
-  float dist = (dist_high*16)+(dist_low/(16/(2^n)));
-
-  Serial.print(cmd[0], HEX); // print the first byte in hex
-  Serial.println(); // print blank line
-  Serial.print(cmd[1], HEX); // print the second byte in hex
-  Serial.println(); // print blank line
+  /*Serial.println(); // print blank line
+  Serial.println("high distance");
+  Serial.println();
+  Serial.print(distances[0], DEC);
+  Serial.println();
+  Serial.println("low distance");
+  Serial.println(); 
+  Serial.print(distances[1], DEC);
+  //Serial.println();
+  //Serial.println("shift bit");
+  //Serial.println();
+  //Serial.println(n);
+  //Serial.println();*/
   Serial.print("Distance in cm: ");
-  Serial.println(dist, 2);//Print distance
-}
+  Serial.println(dist, 3);//Print distance
