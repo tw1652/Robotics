@@ -1,0 +1,216 @@
+#include <mbed.h>
+
+using namespace::mbed;
+
+void setup() {
+  Serial.begin(9600);
+}
+
+//Pins for motor function
+PwmOut MotorAPWM(P0_27);
+DigitalOut MotorADir(P0_4);
+PwmOut MotorBPWM(P1_2);
+DigitalOut MotorBDir(P0_5);
+
+//Pins for US function
+DigitalInOut trig(P1_14);//puts it on sensor 2 position on the board
+DigitalInOut echo(P1_14);
+
+//Encoder inputs and counts
+InterruptIn EncA(P1_11);
+long int ShaftRevA;
+long int EncCountA;
+
+InterruptIn EncB(P1_12);
+long int ShaftRevB;
+long int EncCountB;
+
+//US sensor setup
+Timer timer;
+int distance = 0;
+int correction = 0;
+
+//Encoder function
+//counts the number of encoder counts and full wheel rotations
+void countPulseA() {
+  if(EncCountA%6 == 0) {
+    if(EncCountA%100 == 0) {
+      ShaftRevA++;
+    }
+  }
+  EncCountA++;
+}
+
+void countPulseB() {
+  if(EncCountB%6 == 0) {
+    if(EncCountB%100 == 0) {
+      ShaftRevB++;
+    }
+  }
+  EncCountB++;
+}
+
+//Motor setup and function
+class Motor {
+  public:
+    int moveMotor(int motor, int direction, float speed);
+    int brakeMotor(int motor);
+    int turnLeft();
+    int turnRight();
+    int forward(int dist);
+    int reverse(int dist);
+};
+
+int Motor::moveMotor(int motor, int direction, float speed) {
+
+  if (motor == 0) {
+      Serial.println("Motor A selected");
+      Serial.println();
+      MotorAPWM.period(0.0001f); // Sets frequency to 100kHz
+      MotorADir.write(direction);//set direction forward
+      MotorAPWM.write(speed); 
+  }
+  else if (motor == 1) {
+      Serial.println("Motor B selected");
+      Serial.println();
+      MotorBPWM.period(0.0001f); // Sets frequency to 100kHz
+      MotorBDir.write(direction);//set direction
+      MotorBPWM.write(speed);
+  }
+  else {
+    Serial.println("re-enter motor number");
+  }
+}
+
+int Motor::brakeMotor(int motor){
+
+  if (motor == 0) {
+    Serial.println("Motor A braking");
+    Serial.println();
+    MotorAPWM.write(0);//pwm input set low
+    //set high z as per datasheet
+    MotorADir.write(0);
+    MotorAPWM.write(0);
+  }
+  
+  if (motor ==1 ) {
+    Serial.println("Motor B braking");
+    Serial.println();
+    MotorBPWM.write(1);//pwm input set low
+    //set high z
+    MotorBDir.write(0);
+    MotorBPWM.write(0);
+  }
+}
+
+int Motor::turnLeft(){
+  moveMotor(1, 1, 0.99f);
+  delay(930);
+  brakeMotor(1);
+}
+
+int Motor::turnRight(){
+  moveMotor(0, 0, 0.99f);
+  delay(930);
+  brakeMotor(0);
+}
+
+int Motor::forward(int dist){
+  moveMotor(0, 0, 0.99f);
+  moveMotor(1, 1, 0.99f);
+  delay(dist);
+  brakeMotor(0);
+  brakeMotor(1);
+}
+
+int Motor::reverse(int dist){
+  moveMotor(0, 1, 0.99f);
+  moveMotor(1, 0, 0.99f);
+  delay(dist);
+  brakeMotor(0);
+  brakeMotor(1);
+}
+
+//Ultrasonic sensor function
+void UsSensor(){
+  // trigger the ultrasonic sensor to send a pulse for 10uS
+  trig.output();// sets pin to output
+  trig = 1;
+  timer.reset();
+  wait_us(10);
+  trig = 0;
+
+  // wait for a rising edge
+  trig.input();// sets pin to input
+  echo.input();// sets echo to input
+  while (echo==0) {};
+  //echo high, starting timer to measure time till we get a reading
+  timer.start();
+  while (echo==1) {};
+  timer.stop();
+  distance = (timer.read_us()/58.0);  //divide by 58 as per datasheet for conversion to cm
+  Serial.print("Distance forward in cm: ");
+  Serial.print(distance, DEC);//print distance in decimal
+  Serial.println();
+  delay(100); //wait so any echoes return before sending another pulse as per datasheet reccomendation
+}
+//IR sensor setup and function
+class IRSensor {
+  public:
+    int chooseIRSensor(int sensorNumber);
+    void measure();
+};
+
+int IRSensor::chooseIRSensor(int sensorNumber) {
+  char mux_cmd = 0;
+  if (sensorNumber == 0) {
+    mux_cmd = 0x01; // defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
+    Serial.println("Distance to left in cm: ");
+
+  }
+  else /*(sensorNumber == 1)*/ {
+    mux_cmd = 0x02;  //this selects the other IR sensor when uncommented
+    Serial.println("Distance to right in cm: ");
+  }
+  /*else {
+    Serial.println("Input either sensor 1 or 0");
+  }*/
+  return mux_cmd;//return so it is accessable outside the function  
+}
+
+void IRSensor::measure() {
+  I2C i2c(P0_31, P0_2);              // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_cmd = chooseIRSensor(0);// defines mux_cmd as command to select a channel on the I2C mux
+  const char mux_addr = 0xEE;        // select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // writes the mux_cmd to the addresss mux_addr
+  //the sensor is now on bus 0, address 0x80
+
+  char distances[3];    //array distances with 3 values
+  distances[0] = 0x5E;  //high distance
+  distances[1] = 0x5F;  //low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  // write register addresss to read from
+  wait_us(500000);                // wait for sensor response
+  i2c.read(0x80, distances, 3);   //Read distance high
+
+  //Serial.print("Distance in cm: ");
+  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
+  int distance  = (distances[0]*16.0+distances[1])/16.0/4 ;
+  Serial.println();
+  delay(100);
+}
+
+void loop() {
+  Motor motor;
+  motor.forward(600);
+  EncA.rise(&countPulseA);
+  EncB.rise(&countPulseB);
+  Serial.println("Encoder A count:");
+  Serial.println(EncCountA);
+  delay(2500);
+  Serial.println("Encoder B count:");
+  Serial.println(EncCountB);
+  delay(1000);
+  
+
+}
