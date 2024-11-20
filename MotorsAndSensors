@@ -178,59 +178,25 @@ void loop() {
   Motor motor;
   IRSensor sensorNumber;
   UsSensor();
-  if (distance <= 15) {
-    motor.reverse(600);
-  }
-  else if (distance >= 15) {
+  if (distance >= 15) {
     motor.forward(600);
   }
-
-  chooseIRSensor(0);//measure to the left
-  sensorNumber.measure();
-  else if (distance <= 15) {
-    
+  else {
+    motor.reverse(600);
+    //chooseIRSensor(0);
+    sensorNumber.measure();//measure to the left
+    if (distance <= 15) {
+      motor.turnRight();
+    }
+    else {
+      // chooseIRSensor(1);//measure to the right
+      sensorNumber.measure();
+      if (distance <=15) {
+        motor.turnLeft();
+      }
+      else {
+      }
+    }
   }
-  chooseIRSensor(1);//measure to the right
-  sensorNumber.measure();
-  else if () {
-
-  }
-
-  /*
-  motor.turnRight();
-  delay(5000);
-  motor.turnRight();
-  motor.turnRight();
-  motor.turnRight();
-  delay(5000);
-  motor.turnLeft();
-  delay(1000);
-  motor.turnLeft();
-  motor.turnLeft();
-  motor.turnLeft();
-  delay(1000);
-  motor.forward(600);
-  delay(5000);
-  motor.reverse(600);
-  delay(5000);
-
-  UsSensor();
-  delay(1000);
-  motor.moveMotor(0, 0, 0.5f);
-  delay(1000);
-  motor.brakeMotor(0);
-  delay(1000);
-  motor.moveMotor(1, 1, 0.8f);
-  delay(1000);
-  motor.brakeMotor(1);
-  delay(1000);
-  sensorNumber.chooseIRSensor(0);
-  delay(1000);
-  sensorNumber.measure();
-  delay(1000);
-  sensorNumber.chooseIRSensor(1);
-  delay(1000);
-  sensorNumber.measure();
-  delay(1000);*/
 
 }
