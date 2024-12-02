@@ -41,6 +41,9 @@ float DistanceR = 0.0;
 float SpeedA = 0.0;
 float SpeedB = 0.0;
 
+//THREADS
+Thread thread;
+
 //Encoder function
 //counts the number of encoder counts 
 
@@ -62,8 +65,9 @@ void countPulseB(){
 
 }
 
-void measureDistanceLeft() {
+void measureDistanceLeft_thread() {
   DistanceL = 0.0;
+  //EncCountA = 0;
   speedTimer.reset();
   speedTimer.start();
   while (abs(EncCountA) < 660){
@@ -72,12 +76,14 @@ void measureDistanceLeft() {
   speedTimer.stop();
   DistanceL = (48*3.14*EncCountA)/660;
   //diameter by encoder count
-  Serial.println("Distance by right motor");
+  Serial.println("Distance by left motor");
   Serial.println(DistanceL);
+  ThisThread::sleep_for(1000);
 }
 
-void measureDistanceRight() {
+void measureDistanceRight_thread() {
   DistanceR = 0.0;
+  //EncCountB = 0;
   speedTimer.reset();
   speedTimer.start();
   while (abs(EncCountB) < 660) {
@@ -87,6 +93,8 @@ void measureDistanceRight() {
   DistanceR = (48*3.14*EncCountB)/660;
   Serial.println("Distance by right motor");
   Serial.println(DistanceR);
+  ThisThread::sleep_for(1000);
+
 }
 
 void measureSpeed() {
@@ -100,7 +108,8 @@ void measureSpeed() {
   float avgDistance = (abs(newDistanceL)+abs(newDistanceR))/2;
   //Serial.println(avgDistance);
   float elapsedTime = speedTimer.read_us();
-  //Serial.println(elapsedTime);
+  Serial.println("elapsed time is");
+  Serial.println(elapsedTime);
   float speed = avgDistance/elapsedTime;
   Serial.println("Average speed is: ");
   Serial.println(speed);
@@ -119,21 +128,21 @@ class Motor {
     int reverse(int dist);
 };
 
-int Motor::moveMotor(int motor, int direction, float speed) {
+int Motor::moveMotor(int motor, int direction, float pwm) {
 
   if (motor == 0) {
       //Serial.println("Motor A selected");
       Serial.println();
       MotorAPWM.period(0.001f); // Sets frequency to 100kHz 1ms
       MotorADir.write(direction);//set direction forward
-      MotorAPWM.write(speed); 
+      MotorAPWM.write(pwm); 
   }
   else if (motor == 1) {
       //Serial.println("Motor B selected");
       Serial.println();
       MotorBPWM.period(0.001f); // Sets frequency to 100kHz
       MotorBDir.write(direction);//set direction
-      MotorBPWM.write(speed);
+      MotorBPWM.write(pwm);
   }
   else {
     Serial.println("re-enter motor number");
@@ -174,8 +183,8 @@ int Motor::turnRight(){
 }
 
 int Motor::forward(int dist){
-  moveMotor(0, 0, 0.99f);
-  moveMotor(1, 1, 0.99f);
+  moveMotor(0, 0, 0.8f);
+  moveMotor(1, 1, 0.8f);
   delay(dist);
   brakeMotor(0);
   brakeMotor(1);
@@ -262,26 +271,12 @@ void loop() {
   Motor motor;
   EncA.rise(&countPulseA);//counts pulses, points to the interrupt callback, & gives the address
   EncB.rise(&countPulseB);
-  motor.forward(2500);
-  Serial.println("Encoder A count:");
-  Serial.println(EncCountA);
-  Serial.println("ShaftRevA count:");
-  ShaftRevA = EncCountA / 660;
-  Serial.println(ShaftRevA);
-  EncCountA = 0;
-  ShaftRevA = 0;
-  measureDistanceLeft();
-  //delay(2500);
-  Serial.println("Encoder B count:");
-  Serial.println(EncCountB);
-  Serial.println("ShaftRevB count:");
-  ShaftRevB = EncCountB / 660;
-  Serial.println(ShaftRevB);
-  measureDistanceRight();
+  motor.forward(1500);
+  thread.start(measureDistanceRight_thread);
+  thread.start(measureDistanceLeft_thread);
   measureSpeed();
   EncCountB = 0;
   ShaftRevB = 0;
-  delay(1000);
-
-
+  ThisThread::sleep_for(1000);
+  //delay(1000);
 }
