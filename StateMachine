@@ -1,0 +1,40 @@
+enum RobotStateThere {
+  STATE_STOP = 0,
+  STATE_FORWARD,
+  STATE_LEFT,
+  STATE_RIGHT,
+  STATE_CHECK,
+  STATE_ADJUST
+
+} currentState;
+
+switch (currentState) {
+  case STATE_STOP:
+    Serial.println("State: stop");
+    // stop motors
+    break;
+  case STATE_FORWARD:
+    Serial.println("State: forward");
+    // move forward
+    break;
+  case STATE_LEFT:
+    Serial.println("State: turn left");
+    //move left
+    break;
+  case STATE_RIGHT:
+    Serial.println("State: turn right");
+    //move right
+    break;
+  case STATE_CHECK:
+    Serial.println("State: check orientation");
+    //check IR sensor left
+    //check IR sensor right
+    //check US sensor fwd
+    break;
+  case STATE_ADJUST:
+    Serial.println("State: adjust orientation");
+    //turn left 90
+    //turn right 90
+    //turn 180
+    break;
+}
