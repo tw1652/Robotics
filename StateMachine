@@ -261,65 +261,91 @@ enum RobotStateThere {
 currentState = STATE_FORWARD;
 
 switch (currentState) {
+
   case STATE_STOP:
     Serial.println("State: stop");
     motor.motor(0, 0);
     //Stop motor
-    //recognise it has reached goal
+    //recognise it has reached goal - need map related stuff
     //return to start?
     break;
+
   case STATE_FORWARD:
     Serial.println("State: forward");
     move.motor(0.7, 1);
-    //need to read encoders to find out actually how far the robot goes
-    //THEN:
-    //check map pos
+    delay(1000);
+    motor.motor(0, 0);//move at a set speed for a set time and then break
+    EncA.rise(&countPulseA);//counts pulses, points to the interrupt callback, & gives the address
+    EncB.rise(&countPulseB);
+    measureDistanceLeft();
+    measureDistanceRight();
+    Serial.println("Encoder A count:");
+    Serial.println(EncCountA);
+    Serial.println("Encoder B count:");
+    Serial.println(EncCountB);// read encoders to find out actually how far the robot goes
+    if (/*check map position*/) {
       //if yes, goal reached, go to state_stop
+
+    }
+    else {
       //else do all below
-  
-    //read us
-      //if obstacle
-        //state_left
-      //else
-        //state_forward (back to top)
-    //read ir left
-      //if obstacle
-        //state_right
-      //else
-        //state_forward (back to top)
-    //read ir right
-      //if obstacle
-        //state_left
-      //else
-        //state_forward (back to top)
+      UsSensor();
+      if (distance < 10) {
+        currentState = STATE_LEFT;
+      }
+      else {
+        currentState = STATE_FORWARD;// (back to top)
+      }
+      IRSensor.chooseIRSensor(0);//selects left sensor I think? double check
+      IRSensor.measure();
+      if (distance < 10){
+        currentState = STATE_RIGHT;
+      }
+      else {
+        currentState = STATE_FORWARD;
+      }
+      IRSensor.chooseIRSensor(1);
+      IRSensor.measure();
+      if (distance < 10){
+        currentState = STATE_LEFT;
+      }
+      else {
+        currentState = STATE_FORWARD;
+      }
     //that's all possibilities covered
+    }
     break;
+
   case STATE_LEFT:
     Serial.println("State: turn left");
     //move left
-    //state_check
+    curentState = STATE_CHECK;
     break;
+
   case STATE_RIGHT:
     Serial.println("State: turn right");
     //move right
-    //state_check
+    curentState = STATE_CHECK;
     break;
+
   case STATE_CHECK:
     Serial.println("State: check orientation");
-    //check US sensor fwd
-      //if less than 10 cm
-        //state_adjust
-      //else
-        //check IR sensor left
-          //if less than 10cm
-            //state_forward
-          //else
-            //check IR sensor right
-              //if less than 10cm
-                //state_forward
-              //else
-                //state_forward
+    UsSensor();
+    if (distance < 10) {
+      currentState = STATE_ADJUST;
+    }
+    else {
+      IRSensor.chooseIRSensor(0);
+      IRSensor.measure();
+      if (distance < 10){
+        currentState = STATE_FORWARD;
+      }
+      else {
+        currentState = STATE_FORWARD;
+      }
+    }
     break;
+
   case STATE_ADJUST:
     Serial.println("State: adjust orientation");
     //what does this state do???????
@@ -328,4 +354,5 @@ switch (currentState) {
     //turn right 90
     //turn 180
     break;
+
 }
