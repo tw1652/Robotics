@@ -348,11 +348,15 @@ switch (currentState) {
 
   case STATE_ADJUST:
     Serial.println("State: adjust orientation");
-    //what does this state do???????
-    //options:
-    //turn left 90
     //turn right 90
-    //turn 180
+    UsSensor();
+    if (distance < 10) {
+      //turn right 90
+      currentState = STATE_ADJUST; //back to top
+    }
+    else {
+      curretnState = STATE_FORWARD;
+    }
     break;
 
 }
