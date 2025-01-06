@@ -244,7 +244,7 @@ enum RobotStateThere {
   STATE_CHECK,
   STATE_ADJUST
 
-} currentState;
+}currentState;
 
 currentState = STATE_FORWARD;
 
@@ -305,13 +305,13 @@ switch (currentState) {
   case STATE_LEFT:
     Serial.println("State: turn left");
     //move left
-    curentState = STATE_CHECK;
+    currentState = STATE_CHECK;
     break;
 
   case STATE_RIGHT:
     Serial.println("State: turn right");
     //move right
-    curentState = STATE_CHECK;
+    currentState = STATE_CHECK;
     break;
 
   case STATE_CHECK:
@@ -340,7 +340,7 @@ switch (currentState) {
       currentState = STATE_ADJUST; //back to top
     }
     else {
-      curretnState = STATE_FORWARD;
+      currentState = STATE_FORWARD;
     }
     break;
 
