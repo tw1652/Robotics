@@ -1,5 +1,6 @@
 #include <mbed.h>
 #include <iostream> //need to reference the abs function??
+#include <math.h> // For the mapping coordinates
 using namespace rtos;
 using namespace::mbed;
 
@@ -91,7 +92,7 @@ void measureDistanceRight() {
   Serial.println(DistanceR);
 }
 
-void measureSpeed() {
+void measureSpeed() { 
   float diffDistance = abs(DistanceR - DistanceL);
   float newDistanceL = DistanceL+(diffDistance/2);
   float newDistanceR = DistanceR-(diffDistance/2);//error correction, make both values in the middle as they were quite far out
@@ -109,7 +110,7 @@ void measureSpeed() {
   Serial.println(speed);
   DistanceL = 0.0;//reset distance
   DistanceR = 0.0;
-}
+} 
 
 //Motor setup and function
 class Motor {
@@ -194,40 +195,40 @@ int Motor::reverse(int dist){
 
 //Ultrasonic sensor function
 void UsSensor(){
-  // trigger the ultrasonic sensor to send a pulse for 10uS
-  trig.output();// sets pin to output
-  trig = 1;
+  trig.output(); // Sets pin to output
+  trig = 1; // Trigger the ultrasonic sensor to send a pulse for 10us
   timer.reset();
   wait_us(10);
   trig = 0;
 
-  // wait for a rising edge
-  trig.input();// sets pin to input
-  echo.input();// sets echo to input
+  // Wait for a rising edge
+  trig.input(); // Sets pin to input
+  echo.input(); // Sets echo to input
   while (echo==0) {};
-  //echo high, starting timer to measure time till we get a reading
+   // Echo high, starting timer to measure time till we get a reading
   timer.start();
   while (echo==1) {};
   timer.stop();
-  distance = (timer.read_us()/58.0);  //divide by 58 as per datasheet for conversion to cm
+  distance = (timer.read_us()/58.0);  // Divide by 58 as per datasheet for conversion to cm
   Serial.print("Distance to obstacle forward in cm: ");
-  Serial.print(distance, DEC);//print distance in decimal
+  Serial.print(distance, DEC); // Print distance in decimal
   Serial.println();
-  delay(100); //wait so any echoes return before sending another pulse as per datasheet reccomendation
+  delay(100); // Wait so any echoes return before sending another pulse as per datasheet reccomendation
 }
 //IR sensor setup and function
-int IRMeasure(int sensorNumber) {
+int IrSensor(int sensorNumber) {
   char mux_cmd;
+  // If statements to select the left or right IR sensor
   if (sensorNumber == 0) {
-    mux_cmd = 0x01; // defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
+    mux_cmd = 0x01; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
     Serial.println("Distance to left in cm: ");
   }
   else if (sensorNumber == 1) {
-    mux_cmd = 0x02;  //this selects the other IR sensor when uncommented
+    mux_cmd = 0x02;  // This selects the other IR sensor when uncommented
     Serial.println("Distance to right in cm: ");
   }
   else {
-    Serial.println("Input either sensor 1 or 0");
+    Serial.println("Input either sensor 1 or 0"); // Error message
   }
 
   I2C i2c(P0_31, P0_2);              // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
@@ -244,12 +245,25 @@ int IRMeasure(int sensorNumber) {
   i2c.read(0x80, distances, 3);   //Read distance high
 
   Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  int distance  = (distances[0]*16.0+distances[1])/16.0/4 ;
+  int distance  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
   Serial.println();
 }
 
-void loop() {
+// Robot Mapping
+char occupancy_grid[15][20]; // Using char instead of int to save data space
 
-  IRMeasure(1);
+void polarToCartesian(double distance, int theta, int *x, int *y){
+  *x = (int)(distance * cos((distance/180)*PI));
+  *y = (int)(distance * sin((theta/180)*PI));
+}
+
+
+void loop() {
+  UsSensor();
+  delay(2000);
+  IrSensor(0);
+  delay(2000);
+  IrSensor(1);
+  delay(2000);
 
 }
