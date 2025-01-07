@@ -12,7 +12,7 @@ enum RobotStateThere {
 
 };
 
-RobotStateThere currentState = STATE_FORWARD;
+RobotStateThere currentState = STATE_LEFT;
 
 using namespace rtos;
 using namespace::mbed;
@@ -303,14 +303,14 @@ switch (currentState) {
         currentState = STATE_FORWARD;// Back to top
       }
       IrSensor(0); // Selects left sensor
-      if (distance < 20){
+      if (distance < 15){
         currentState = STATE_RIGHT;
       }
       else {
         currentState = STATE_FORWARD;
       }
       IrSensor(1);
-      if (distance < 20){
+      if (distance < 15){
         currentState = STATE_LEFT;
       }
       else {
@@ -343,7 +343,7 @@ switch (currentState) {
     }
     else {
       IrSensor(0);
-      if (distance < 20){
+      if (distance < 15){
         currentState = STATE_FORWARD;
       }
       else {
