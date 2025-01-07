@@ -118,7 +118,7 @@ class Motor {
   int motor(float speed, int turn);
   /*speed: 
     If speed positive, goes forwards. If negative, goes backwards.
-    If turn 0, go straight. If 1, goes left (when going forward), if 0 goes right.
+    If turn 0, go straight. If 1, goes left (when going forward), if 2 goes right.
     These will be reversed when the speed is less than zero.
     If the speed is set to zero, the motor stops. Probably best if the turn is set to 0 too when this is done.
 
@@ -131,7 +131,32 @@ int Motor::motor(float speed, int turn){
   MotorAPWM.period(0.001f);// Sets frequency to 100kHz 1ms
   MotorBPWM.period(0.001f); // Sets frequency to 100kHz
   if (speed > 0) { //positive, so going forwards
-    MotorADir.write(1);//set direction to forward
+    MotorADir.write(0);//set direction to forward
+    MotorBDir.write(1);
+    if (turn == 0){//straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){//left (when going forward)
+      MotorBDir.write(1);
+      MotorADir.write(1);// Move opposite direction
+      MotorBPWM.write(abs(speed));
+      MotorAPWM.write(abs(speed));
+
+    }
+    else if (turn == 2){//right (when going forward)
+      MotorADir.write(0);
+      MotorBDir.write(0);// Move opposite direction
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else {
+      //do nothing, maybe just go straight
+    }
+  }
+
+  else  if (speed < 0) { //negative, so going backwards
+    MotorADir.write(1);//set direction to reverse
     MotorBDir.write(0);
     if (turn == 0){//straight
       MotorAPWM.write(abs(speed));
@@ -143,28 +168,7 @@ int Motor::motor(float speed, int turn){
 
     }
     else if (turn == 2){//right (when going forward)
-      MotorADir.write(0);
-      MotorBPWM.write(abs(speed));
-    }
-    else {
-      //do nothing, maybe just go straight
-    }
-  }
-
-  else  if (speed < 0) { //negative, so going backwards
-    MotorADir.write(0);//set direction to reverse
-    MotorBDir.write(1);
-    if (turn == 0){//straight
-      MotorAPWM.write(abs(speed));
-      MotorBPWM.write(abs(speed));
-    }
-    else if (turn == 1){//left (when going forward)
-      MotorADir.write(1);
-      MotorAPWM.write(abs(speed));
-
-    }
-    else if (turn == 2){//right (when going forward)
-      MotorADir.write(0);
+      MotorBDir.write(0);
       MotorBPWM.write(abs(speed));
     }
     else {
@@ -253,11 +257,30 @@ void polarToCartesian(double distance, int theta, int *x, int *y){
 
 
 void loop() {
-  UsSensor();
-  delay(2000);
-  IrSensor(0);
-  delay(2000);
-  IrSensor(1);
-  delay(2000);
+  Motor motor;
+
+  // Move forward
+  motor.motor(0.7, 0);
+  delay(1000);
+  motor.motor(0, 0);
+  delay(5000);
+
+  // Turn left 
+  motor.motor(0.7, 1);
+  delay(675);
+  motor.motor(0, 0);
+  delay(5000);
+
+  // Turn right
+  motor.motor(0.7, 2);
+  delay(675);
+  motor.motor(0, 0);
+  delay(5000);
+
+  // Backwards
+  motor.motor(-0.7, 0);
+  delay(1000);
+  motor.motor(0, 0);
+  delay(5000);
 
 }
