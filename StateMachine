@@ -116,6 +116,14 @@ void measureSpeed() {
 class Motor {
   public:
   int motor(float speed, int turn);
+  /*speed: 
+    If speed positive, goes forwards. If negative, goes backwards.
+    If turn 0, go straight. If 1, goes left (when going forward), if 2 goes right.
+    These will be reversed when the speed is less than zero.
+    If the speed is set to zero, the motor stops. Probably best if the turn is set to 0 too when this is done.
+
+    0.7 is a good speed.
+  */
   //int rotate(int turn);
 };
 
@@ -246,24 +254,25 @@ enum RobotStateThere {
 
 }currentState;
 
+// Setup stuff
 currentState = STATE_FORWARD;
+Motor motor;
 
 switch (currentState) {
 
   case STATE_STOP:
     Serial.println("State: stop");
-    motor.motor(0, 0);
-    //Stop motor
+    motor.motor(0, 0); //Stop motor
     //recognise it has reached goal - need map related stuff
     //return to start?
     break;
 
   case STATE_FORWARD:
     Serial.println("State: forward");
-    move.motor(0.7, 1);
+    move.motor(0.7, 0);
     delay(1000);
-    motor.motor(0, 0);//move at a set speed for a set time and then break
-    EncA.rise(&countPulseA);//counts pulses, points to the interrupt callback, & gives the address
+    motor.motor(0, 0); // Move at a set speed for a set time and then break
+    EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
     EncB.rise(&countPulseB);
     measureDistanceLeft();
     measureDistanceRight();
@@ -273,18 +282,17 @@ switch (currentState) {
     Serial.println(EncCountB);// read encoders to find out actually how far the robot goes
     if (/*check map position*/) {
       //if yes, goal reached, go to state_stop
-
+      //else do all below
     }
     else {
-      //else do all below
       UsSensor();
       if (distance < 10) {
         currentState = STATE_LEFT;
       }
       else {
-        currentState = STATE_FORWARD;// (back to top)
+        currentState = STATE_FORWARD;// Back to top
       }
-      IrSensor(0);//selects left sensor
+      IrSensor(0); // Selects left sensor
       if (distance < 10){
         currentState = STATE_RIGHT;
       }
@@ -298,19 +306,20 @@ switch (currentState) {
       else {
         currentState = STATE_FORWARD;
       }
-    //that's all possibilities covered
     }
     break;
 
   case STATE_LEFT:
     Serial.println("State: turn left");
-    //move left
+    motor.motor(0.7, 1); // Move left
+    //need a delay and stop in here, going to do some testing.
     currentState = STATE_CHECK;
     break;
 
   case STATE_RIGHT:
     Serial.println("State: turn right");
-    //move right
+    motor.motor(0.7, 2); // Move right
+    //""
     currentState = STATE_CHECK;
     break;
 
