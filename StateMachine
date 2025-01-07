@@ -1,6 +1,19 @@
 #include <mbed.h>
 #include <iostream> //need to reference the abs function??
 #include <math.h> // For the mapping coordinates
+
+enum RobotStateThere {
+  STATE_STOP = 0,
+  STATE_FORWARD,
+  STATE_LEFT,
+  STATE_RIGHT,
+  STATE_CHECK,
+  STATE_ADJUST
+
+};
+
+RobotStateThere currentState = STATE_FORWARD;
+
 using namespace rtos;
 using namespace::mbed;
 
@@ -211,6 +224,7 @@ void UsSensor(){
   Serial.print(distance, DEC); // Print distance in decimal
   Serial.println();
   delay(100); // Wait so any echoes return before sending another pulse as per datasheet reccomendation
+  //return distance;
 }
 
 //IR sensor setup and function
@@ -245,23 +259,15 @@ int IrSensor(int sensorNumber) {
   Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
   int distance  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
   Serial.println();
+  //return distance;
 }
 
 
-enum RobotStateThere {
-  STATE_STOP = 0,
-  STATE_FORWARD,
-  STATE_LEFT,
-  STATE_RIGHT,
-  STATE_CHECK,
-  STATE_ADJUST
 
-}currentState;
 
-// Setup stuff
-currentState = STATE_FORWARD;
-Motor motor;
+Motor motor; // Initialise motor
 
+void loop() {
 switch (currentState) {
 
   case STATE_STOP:
@@ -273,7 +279,7 @@ switch (currentState) {
 
   case STATE_FORWARD:
     Serial.println("State: forward");
-    move.motor(0.7, 0);
+    motor.motor(0.7, 0);
     delay(1000);
     motor.motor(0, 0); // Move at a set speed for a set time and then break
     EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
@@ -284,27 +290,27 @@ switch (currentState) {
     Serial.println(EncCountA);
     Serial.println("Encoder B count:");
     Serial.println(EncCountB);// read encoders to find out actually how far the robot goes
-    if (/*check map position*/) {
+    if (0==1/*check map position*/) {
       //if yes, goal reached, go to state_stop
       //else do all below
     }
     else {
       UsSensor();
-      if (distance < 10) {
+      if (distance < 20) {
         currentState = STATE_LEFT;
       }
       else {
         currentState = STATE_FORWARD;// Back to top
       }
       IrSensor(0); // Selects left sensor
-      if (distance < 10){
+      if (distance < 20){
         currentState = STATE_RIGHT;
       }
       else {
         currentState = STATE_FORWARD;
       }
       IrSensor(1);
-      if (distance < 10){
+      if (distance < 20){
         currentState = STATE_LEFT;
       }
       else {
@@ -332,12 +338,12 @@ switch (currentState) {
   case STATE_CHECK:
     Serial.println("State: check orientation");
     UsSensor();
-    if (distance < 10) {
+    if (distance < 20) {
       currentState = STATE_ADJUST;
     }
     else {
       IrSensor(0);
-      if (distance < 10){
+      if (distance < 20){
         currentState = STATE_FORWARD;
       }
       else {
@@ -363,4 +369,5 @@ switch (currentState) {
     }
     break;
 
+}
 }
