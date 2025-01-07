@@ -348,13 +348,13 @@ switch (currentState) {
       irSensor.irSensor(0); // Selects left sensor
       irSensor.irSensor(1); // Selects right sensor
       //will need to use some of that data to build map
-      if (DistanceForward < 20 && DistanceRight < 20 && DistanceLeft < 20) { // Stuck in corner
+      if (DistanceForward < 25 && DistanceRight < 25 && DistanceLeft < 25) { // Stuck in corner
         currentState = STATE_REVERSE;
       }
-      else if (DistanceForward < 20 || (DistanceForward < 20 && DistanceRight < 20)) { // Obstacle in front, obstacle to front and right
+      else if (DistanceForward < 25 || (DistanceForward < 25 && DistanceRight < 25)) { // Obstacle in front, obstacle to front and right
         currentState = STATE_LEFT;
       }
-      else if (DistanceForward < 20 && DistanceLeft < 20) {
+      else if (DistanceForward < 25 && DistanceLeft < 25) {
         currentState = STATE_RIGHT;
       }
       else {
@@ -368,7 +368,7 @@ switch (currentState) {
     motor(-0.7, 0);
     delay(1000);
     motor(0, 0); // Reverse
-    if (DistanceForward < 20 && DistanceRight < 20 && DistanceLeft < 20) {
+    if (DistanceForward < 25 && DistanceRight < 25 && DistanceLeft < 25) {
         currentState = STATE_REVERSE; //Back to top until it is out of the corner
     }
     else {
@@ -395,16 +395,15 @@ switch (currentState) {
     Serial.println("State: check orientation");
     UsSensor();
     irSensor.irSensor(0);
-    if (DistanceForward < 25) {
-      currentState = STATE_ADJUST;
+    if (DistanceLeft < 25) {
+      currentState = STATE_FORWARD;
+    }
+    else if (DistanceLeft < 25 && DistanceForward < 25) {
+      currentState = STATE_RIGHT;
+      //may need some more logic here, could get stuck or something I think
     }
     else {
-      if (DistanceLeft < 20){
-        currentState = STATE_FORWARD;
-      }
-      else {
-        currentState = STATE_FORWARD;
-      }
+      currentState = STATE_ADJUST;
     }
     break;
 
