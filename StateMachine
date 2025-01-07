@@ -12,7 +12,7 @@ enum RobotStateThere {
 
 };
 
-RobotStateThere currentState = STATE_LEFT;
+RobotStateThere currentState = STATE_FORWARD;
 
 using namespace rtos;
 using namespace::mbed;
@@ -35,8 +35,11 @@ DigitalInOut echo(P1_14);
 
 //US sensor setup
 Timer timer;
-int distance = 0;
+int DistanceForward = 0;
 int correction = 0;
+
+//IR sensor setup
+int SideDistance = 0;
 
 //Encoder inputs and counts
 InterruptIn EncA(P1_11);
@@ -126,9 +129,6 @@ void measureSpeed() {
 }
 
 //Motor setup and function
-class Motor {
-  public:
-  int motor(float speed, int turn);
   /*speed: 
     If speed positive, goes forwards. If negative, goes backwards.
     If turn 0, go straight. If 1, goes left (when going forward), if 2 goes right.
@@ -137,10 +137,8 @@ class Motor {
 
     0.7 is a good speed.
   */
-  //int rotate(int turn);
-};
 
-int Motor::motor(float speed, int turn){
+int motor(float speed, int turn){
   MotorAPWM.period(0.001f);// Sets frequency to 100kHz 1ms
   MotorBPWM.period(0.001f); // Sets frequency to 100kHz
   if (speed > 0) { //positive, so going forwards
@@ -219,12 +217,11 @@ void UsSensor(){
   timer.start();
   while (echo==1) {};
   timer.stop();
-  distance = (timer.read_us()/58.0);  // Divide by 58 as per datasheet for conversion to cm
+  DistanceForward = (timer.read_us()/58.0);  // Divide by 58 as per datasheet for conversion to cm
   Serial.print("Distance to obstacle forward in cm: ");
-  Serial.print(distance, DEC); // Print distance in decimal
+  Serial.print(DistanceForward, DEC); // Print distance in decimal
   Serial.println();
   delay(100); // Wait so any echoes return before sending another pulse as per datasheet reccomendation
-  //return distance;
 }
 
 //IR sensor setup and function
@@ -257,31 +254,43 @@ int IrSensor(int sensorNumber) {
   i2c.read(0x80, distances, 3);   //Read distance high
 
   Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  int distance  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  SideDistance  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
   Serial.println();
-  //return distance;
 }
 
+// Robot Mapping
+char occupancy_grid[15][20]; // Using char instead of int to save data space
 
-
-
-Motor motor; // Initialise motor
+void polarToCartesian(double SensorDistance, int theta, int *x, int *y){
+  *x = (int)(SensorDistance * cos((SensorDistance/180)*PI));
+  *y = (int)(SensorDistance * sin((theta/180)*PI));
+}
 
 void loop() {
 switch (currentState) {
 
   case STATE_STOP:
     Serial.println("State: stop");
-    motor.motor(0, 0); //Stop motor
-    //recognise it has reached goal - need map related stuff
-    //return to start?
+    motor(0, 0); //Stop motor
+    if (0=1/*it is end of first run*/) {
+      //Flash LED x times?
+      motor(-0.7, 2);
+      delay(1350);
+      motor(0, 0);// Turn around
+    }
+    else {
+      // Must be back at the start
+      //Finish Status (maybe flash LED y times?)
+      //Press button for some sort of reset?
+      //Or just turn around and go back to STATE_FORWARD??
+    }
     break;
 
   case STATE_FORWARD:
     Serial.println("State: forward");
-    motor.motor(0.7, 0);
+    motor(0.7, 0);
     delay(1000);
-    motor.motor(0, 0); // Move at a set speed for a set time and then break
+    motor(0, 0); // Move at a set speed for a set time and then break
     EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
     EncB.rise(&countPulseB);
     measureDistanceLeft();
@@ -290,27 +299,30 @@ switch (currentState) {
     Serial.println(EncCountA);
     Serial.println("Encoder B count:");
     Serial.println(EncCountB);// read encoders to find out actually how far the robot goes
-    if (0==1/*check map position*/) {
-      //if yes, goal reached, go to state_stop
-      //else do all below
+    if (0==1/*check map position for end of first run to goal*/) {
+      //recognise it has reached goal - need map related stuff
+      currentState = STATE_STOP; 
+    }
+    else if () {
+      //recognise it has reached goal - need map related stuff
     }
     else {
       UsSensor();
-      if (distance < 20) {
+      if (DistanceForward < 25) {
         currentState = STATE_LEFT;
       }
       else {
         currentState = STATE_FORWARD;// Back to top
       }
       IrSensor(0); // Selects left sensor
-      if (distance < 15){
+      if (SideDistance < 20){
         currentState = STATE_RIGHT;
       }
       else {
         currentState = STATE_FORWARD;
       }
       IrSensor(1);
-      if (distance < 15){
+      if (SideDistance < 20){
         currentState = STATE_LEFT;
       }
       else {
@@ -321,29 +333,29 @@ switch (currentState) {
 
   case STATE_LEFT:
     Serial.println("State: turn left");
-    motor.motor(0.7, 1); // Move left
+    motor(0.7, 1); // Move left
     delay(675);
-    motor.motor(0, 0);
+    motor(0, 0);
     currentState = STATE_CHECK;
     break;
 
   case STATE_RIGHT:
     Serial.println("State: turn right");
-    motor.motor(0.7, 2); // Move right
+    motor(0.7, 2); // Move right
     delay(675);
-    motor.motor(0, 0);
+    motor(0, 0);
     currentState = STATE_CHECK;
     break;
 
   case STATE_CHECK:
     Serial.println("State: check orientation");
     UsSensor();
-    if (distance < 20) {
+    if (DistanceForward < 25) {
       currentState = STATE_ADJUST;
     }
     else {
       IrSensor(0);
-      if (distance < 15){
+      if (SideDistance < 20){
         currentState = STATE_FORWARD;
       }
       else {
@@ -354,14 +366,14 @@ switch (currentState) {
 
   case STATE_ADJUST:
     Serial.println("State: adjust orientation");
-    motor.motor(0.7, 2); 
+    motor(0.7, 2); 
     delay(675);
-    motor.motor(0, 0); // Turn right 90
+    motor(0, 0); // Turn right 90
     UsSensor();
-    if (distance < 10) {
-      motor.motor(0.7, 2); 
+    if (DistanceForward < 25) {
+      motor(0.7, 2); 
       delay(675);
-      motor.motor(0, 0); // Turn right 90
+      motor(0, 0); // Turn right 90
       currentState = STATE_ADJUST; //back to top
     }
     else {
