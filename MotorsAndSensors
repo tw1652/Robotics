@@ -115,82 +115,75 @@ void measureSpeed() {
 //Motor setup and function
 class Motor {
   public:
-    int moveMotor(int motor, int direction, float speed);
-    int brakeMotor(int motor);
-    int turnLeft();
-    int turnRight();
-    int forward(int dist);
-    int reverse(int dist);
+  int motor(float speed, int turn);
+  /*speed: 
+    If speed positive, goes forwards. If negative, goes backwards.
+    If turn 0, go straight. If 1, goes left (when going forward), if 0 goes right.
+    These will be reversed when the speed is less than zero.
+    If the speed is set to zero, the motor stops. Probably best if the turn is set to 0 too when this is done.
+
+    0.7 is a good speed.
+  */
+  //int rotate(int turn);
 };
 
-int Motor::moveMotor(int motor, int direction, float pwm) {
+int Motor::motor(float speed, int turn){
+  MotorAPWM.period(0.001f);// Sets frequency to 100kHz 1ms
+  MotorBPWM.period(0.001f); // Sets frequency to 100kHz
+  if (speed > 0) { //positive, so going forwards
+    MotorADir.write(1);//set direction to forward
+    MotorBDir.write(0);
+    if (turn == 0){//straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){//left (when going forward)
+      MotorADir.write(1);
+      MotorAPWM.write(abs(speed));
 
-  if (motor == 0) {
-      //Serial.println("Motor A selected");
-      Serial.println();
-      MotorAPWM.period(0.001f); // Sets frequency to 100kHz 1ms
-      MotorADir.write(direction);//set direction forward
-      MotorAPWM.write(0.65); //A PWM
+    }
+    else if (turn == 2){//right (when going forward)
+      MotorADir.write(0);
+      MotorBPWM.write(abs(speed));
+    }
+    else {
+      //do nothing, maybe just go straight
+    }
   }
-  else if (motor == 1) {
-      //Serial.println("Motor B selected");
-      Serial.println();
-      MotorBPWM.period(0.001f); // Sets frequency to 100kHz
-      MotorBDir.write(direction);//set direction
-      MotorBPWM.write(0.65); //B PWM
+
+  else  if (speed < 0) { //negative, so going backwards
+    MotorADir.write(0);//set direction to reverse
+    MotorBDir.write(1);
+    if (turn == 0){//straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){//left (when going forward)
+      MotorADir.write(1);
+      MotorAPWM.write(abs(speed));
+
+    }
+    else if (turn == 2){//right (when going forward)
+      MotorADir.write(0);
+      MotorBPWM.write(abs(speed));
+    }
+    else {
+      //do nothing, maybe just go straight
+    }
   }
+
   else {
-    Serial.println("re-enter motor number");
-  }
-}
-
-int Motor::brakeMotor(int motor){
-
-  if (motor == 0) {
-    //Serial.println("Motor A braking");
-    Serial.println();
-    MotorAPWM.write(0);//pwm input set low
-    //set high z as per datasheet
+    //not forward or back, so made to brake
+    MotorAPWM.write(0);//set each pwm low
+    MotorBPWM.write(1);
+    //set each motor to high z as per datasheet
     MotorADir.write(0);
     MotorAPWM.write(0);
-  }
-  
-  if (motor == 1) {
-    //Serial.println("Motor B braking");
-    Serial.println();
-    MotorBPWM.write(1);//pwm input set low
     //set high z
     MotorBDir.write(0);
     MotorBPWM.write(0);
   }
-}
 
-int Motor::turnLeft(){
-  moveMotor(1, 1, 0.99f);
-  delay(930);
-  brakeMotor(1);
-}
-
-int Motor::turnRight(){
-  moveMotor(0, 0, 0.99f);
-  delay(930);
-  brakeMotor(0);
-}
-
-int Motor::forward(int dist){
-  moveMotor(0, 0, 0.65f);
-  moveMotor(1, 1, 0.65f);
-  delay(dist);
-  brakeMotor(0);
-  brakeMotor(1);
-}
-
-int Motor::reverse(int dist){
-  moveMotor(0, 1, 0.6f);//a clockwise
-  moveMotor(1, 0, 0.6f);//b counterclockwise
-  delay(dist);
-  brakeMotor(0);
-  brakeMotor(1);
 }
 
 //Ultrasonic sensor function
@@ -215,6 +208,7 @@ void UsSensor(){
   Serial.println();
   delay(100); // Wait so any echoes return before sending another pulse as per datasheet reccomendation
 }
+
 //IR sensor setup and function
 int IrSensor(int sensorNumber) {
   char mux_cmd;
