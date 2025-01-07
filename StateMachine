@@ -2,17 +2,17 @@
 #include <iostream> //need to reference the abs function??
 #include <math.h> // For the mapping coordinates
 
-enum RobotStateThere {
+enum RobotState {
   STATE_STOP = 0,
   STATE_FORWARD,
+  STATE_REVERSE,
   STATE_LEFT,
   STATE_RIGHT,
   STATE_CHECK,
   STATE_ADJUST
-
 };
 
-RobotStateThere currentState = STATE_FORWARD;
+RobotState currentState = STATE_FORWARD;
 
 using namespace rtos;
 using namespace::mbed;
@@ -39,7 +39,9 @@ int DistanceForward = 0;
 int correction = 0;
 
 //IR sensor setup
-int SideDistance = 0;
+char mux_cmd;
+int DistanceLeft = 0;
+int DistanceRight = 0;
 
 //Encoder inputs and counts
 InterruptIn EncA(P1_11);
@@ -225,21 +227,29 @@ void UsSensor(){
 }
 
 //IR sensor setup and function
-int IrSensor(int sensorNumber) {
-  char mux_cmd;
+
+class ir {
+  public:
+  int irSensor(char sensorNumber);
+  int measureLeft();
+  int measureRight();
+};
+
+int ir::irSensor(char sensorNumber) {
   // If statements to select the left or right IR sensor
   if (sensorNumber == 0) {
-    mux_cmd = 0x01; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
-    Serial.println("Distance to left in cm: ");
+    measureLeft();
   }
   else if (sensorNumber == 1) {
-    mux_cmd = 0x02;  // This selects the other IR sensor when uncommented
-    Serial.println("Distance to right in cm: ");
+    measureRight();
   }
   else {
     Serial.println("Input either sensor 1 or 0"); // Error message
   }
+}
 
+int ir::measureLeft() {
+  mux_cmd = 0x01; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
   I2C i2c(P0_31, P0_2);              // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
   const char mux_addr = 0xEE;        // select bus 0 on mux chip
   i2c.write(mux_addr, &mux_cmd, 1);  // writes the mux_cmd to the addresss mux_addr
@@ -253,8 +263,30 @@ int IrSensor(int sensorNumber) {
   wait_us(500000);                // wait for sensor response
   i2c.read(0x80, distances, 3);   //Read distance high
 
+  Serial.println("Distance to left in cm: ");
   Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  SideDistance  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  Serial.println();
+}
+
+int ir::measureRight() {
+  mux_cmd = 0x02;  // This selects the other IR sensor when uncommented
+  I2C i2c(P0_31, P0_2);              // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_addr = 0xEE;        // select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // writes the mux_cmd to the addresss mux_addr
+  //the sensor is now on bus 0, address 0x80
+
+  char distances[3];    //array distances with 3 values
+  distances[0] = 0x5E;  //high distance
+  distances[1] = 0x5F;  //low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  // write register addresss to read from
+  wait_us(500000);                // wait for sensor response
+  i2c.read(0x80, distances, 3);   //Read distance high
+
+  Serial.println("Distance to right in cm: ");
+  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
+  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
   Serial.println();
 }
 
@@ -266,13 +298,18 @@ void polarToCartesian(double SensorDistance, int theta, int *x, int *y){
   *y = (int)(SensorDistance * sin((theta/180)*PI));
 }
 
+
 void loop() {
+
+
 switch (currentState) {
+
+  ir irSensor;  
 
   case STATE_STOP:
     Serial.println("State: stop");
     motor(0, 0); //Stop motor
-    if (0=1/*it is end of first run*/) {
+    if (0==1/*it is end of first run*/) {
       //Flash LED x times?
       motor(-0.7, 2);
       delay(1350);
@@ -299,38 +336,45 @@ switch (currentState) {
     Serial.println(EncCountA);
     Serial.println("Encoder B count:");
     Serial.println(EncCountB);// read encoders to find out actually how far the robot goes
-    if (0==1/*check map position for end of first run to goal*/) {
+    if (0==1/*check map position for end of first maze*/) {
       //recognise it has reached goal - need map related stuff
       currentState = STATE_STOP; 
     }
-    else if () {
+    else if (0==1/*check map position for maze and back aka reached goal*/) {
       //recognise it has reached goal - need map related stuff
     }
     else {
       UsSensor();
-      if (DistanceForward < 25) {
+      irSensor.irSensor(0); // Selects left sensor
+      irSensor.irSensor(1); // Selects right sensor
+      //will need to use some of that data to build map
+      if (DistanceForward < 20 && DistanceRight < 20 && DistanceLeft < 20) { // Stuck in corner
+        currentState = STATE_REVERSE;
+      }
+      else if (DistanceForward < 20 || (DistanceForward < 20 && DistanceRight < 20)) { // Obstacle in front, obstacle to front and right
         currentState = STATE_LEFT;
+      }
+      else if (DistanceForward < 20 && DistanceLeft < 20) {
+        currentState = STATE_RIGHT;
       }
       else {
         currentState = STATE_FORWARD;// Back to top
       }
-      IrSensor(0); // Selects left sensor
-      if (SideDistance < 20){
-        currentState = STATE_RIGHT;
-      }
-      else {
-        currentState = STATE_FORWARD;
-      }
-      IrSensor(1);
-      if (SideDistance < 20){
-        currentState = STATE_LEFT;
-      }
-      else {
-        currentState = STATE_FORWARD;
-      }
     }
     break;
 
+  case STATE_REVERSE:
+    Serial.println("State: reverse");
+    motor(-0.7, 0);
+    delay(1000);
+    motor(0, 0); // Reverse
+    if (DistanceForward < 20 && DistanceRight < 20 && DistanceLeft < 20) {
+        currentState = STATE_REVERSE; //Back to top until it is out of the corner
+    }
+    else {
+      currentState = STATE_CHECK; // Put to check orientation as that is where it would be if there were no corner
+    }
+  
   case STATE_LEFT:
     Serial.println("State: turn left");
     motor(0.7, 1); // Move left
@@ -350,12 +394,12 @@ switch (currentState) {
   case STATE_CHECK:
     Serial.println("State: check orientation");
     UsSensor();
+    irSensor.irSensor(0);
     if (DistanceForward < 25) {
       currentState = STATE_ADJUST;
     }
     else {
-      IrSensor(0);
-      if (SideDistance < 20){
+      if (DistanceLeft < 20){
         currentState = STATE_FORWARD;
       }
       else {
