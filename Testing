@@ -53,20 +53,17 @@ float SpeedB = 0.0;
 //counts the number of encoder counts 
 
 void countPulseA(){
-   if(MotorADir == 0)//if going forward
-     EncCountA++;//count up
+   if(MotorADir == 0)// If going forward
+     EncCountA+=1;// Count up
    else
-     EncCountA--;//count down
-
+     EncCountA-=1;// Count down
 }
 
 void countPulseB(){
-   if(MotorBDir == 0)//if going forward
-     EncCountB+=1;//count up
+   if(MotorBDir == 1)// If going forward
+     EncCountB+=1;// Count up
    else
-     EncCountB-=1;//count down
-  //FIXING ENCODER  hardware error by doubling count
-
+     EncCountB-=1;// Count down
 }
 
 void measureDistanceLeft() {
@@ -288,8 +285,20 @@ void polarToCartesian(double SensorDistance, int theta, int *x, int *y){
 
 
 void loop() {
-  irSensor.irSensor(0);
-  irSensor.irSensor(1);
-  UsSensor();
+  motor(0.7, 0);
   delay(1000);
+  motor(0, 0);
+
+  EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
+  EncB.rise(&countPulseB);
+  measureDistanceLeft();
+  measureDistanceRight();
+  measureSpeed();
+  Serial.println("Encoder A count:");
+  Serial.println(EncCountA);
+  Serial.println("Encoder B count:");
+  Serial.println(EncCountB);
+
+  delay(2500);
+
 }
