@@ -72,7 +72,7 @@ void countPulseA(){
 }
 
 void countPulseB(){
-   if(MotorBDir == 0)//if going forward
+   if(MotorBDir == 1)//if going forward
      EncCountB+=1;//count up
    else
      EncCountB-=1;//count down
@@ -330,13 +330,10 @@ switch (currentState) {
     motor(0.7, 0);
     delay(1000);
     motor(0, 0); // Move at a set speed for a set time and then break
-    /*EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
+    EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
     EncB.rise(&countPulseB);
     measureDistanceLeft();
     measureDistanceRight();
-    Serial.println("Encoder A count:");
-    Serial.println(EncCountA);
-    Serial.println("Encoder B count:");*/
     currentState = STATE_CHECK;
     break;
 
@@ -345,6 +342,10 @@ switch (currentState) {
     motor(-0.7, 0);
     delay(1000);
     motor(0, 0); // Reverse
+    EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
+    EncB.rise(&countPulseB);
+    measureDistanceLeft();
+    measureDistanceRight();
     currentState = STATE_CHECK;
     break;
   
@@ -353,6 +354,8 @@ switch (currentState) {
     motor(0.7, 1); // Move left
     delay(675);
     motor(0, 0);
+    EncCountA = 0;
+    EncCountB = 0;
     currentState = STATE_CHECK;
     break;
 
@@ -361,6 +364,8 @@ switch (currentState) {
     motor(0.7, 2); // Move right
     delay(675);
     motor(0, 0);
+    EncCountA = 0;
+    EncCountB = 0;
     currentState = STATE_CHECK;
     break;
 
