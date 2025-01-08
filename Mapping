@@ -1,0 +1,308 @@
+#include <mbed.h>
+#include <iostream> //need to reference the abs function??
+#include <math.h> // For the mapping coordinates
+
+using namespace rtos;
+using namespace::mbed;
+
+void setup() {
+  Serial.begin(9600);
+}
+
+//Pins for motor function
+PwmOut MotorAPWM(P0_27);
+DigitalOut MotorADir(P0_4);
+PwmOut MotorBPWM(P1_2);
+DigitalOut MotorBDir(P0_5);
+
+//Pins for US function
+DigitalInOut trig(P1_14);//puts it on sensor 2 position on the board
+DigitalInOut echo(P1_14);
+
+
+
+//US sensor setup
+Timer timer;
+int DistanceForward = 0;
+int correction = 0;
+
+//IR sensor setup
+char mux_cmd;
+int DistanceLeft = 0;
+int DistanceRight = 0;
+
+//Encoder inputs and counts
+InterruptIn EncA(P1_11);
+long int ShaftRevA = 0;
+long int EncCountA = 0;
+//long ints used to stop numerical overlow as large values
+
+InterruptIn EncB(P1_12);
+long int ShaftRevB = 0;
+long int EncCountB = 0;
+
+//Encoder setup
+Timer speedTimer;
+float DistanceL = 0.0;
+float DistanceR = 0.0;
+float SpeedA = 0.0;
+float SpeedB = 0.0;
+
+
+//Encoder function
+//counts the number of encoder counts 
+
+void countPulseA(){
+   if(MotorADir == 0)//if going forward
+     EncCountA++;//count up
+   else
+     EncCountA--;//count down
+
+}
+
+void countPulseB(){
+   if(MotorBDir == 0)//if going forward
+     EncCountB+=1;//count up
+   else
+     EncCountB-=1;//count down
+  //FIXING ENCODER  hardware error by doubling count
+
+}
+
+void measureDistanceLeft() {
+  DistanceL = 0.0;
+  //EncCountA = 0;
+  speedTimer.reset();
+  speedTimer.start();
+  while (abs(EncCountA) < 660){
+    EncCountA++;
+  }
+  speedTimer.stop();
+  DistanceL = (48*3.14*EncCountA)/660;
+  //diameter by encoder count
+  Serial.println("Distance by left motor");
+  Serial.println(DistanceL);
+}
+
+void measureDistanceRight() {
+  DistanceR = 0.0;
+  //EncCountB = 0;
+  speedTimer.reset();
+  speedTimer.start();
+  while (abs(EncCountB) < 660) {
+    EncCountB++;
+  }
+  speedTimer.stop();
+  DistanceR = (48*3.14*EncCountB)/660;
+  Serial.println("Distance by right motor");
+  Serial.println(DistanceR);
+}
+
+void measureSpeed() {
+  float diffDistance = abs(DistanceR - DistanceL);
+  float newDistanceL = DistanceL+(diffDistance/2);
+  float newDistanceR = DistanceR-(diffDistance/2);//error correction, make both values in the middle as they were quite far out
+  //Serial.println(diffDistance);
+  //Serial.println(newDistanceL);
+  //Serial.println(newDistanceR);
+  
+  float avgDistance = (abs(newDistanceL)+abs(newDistanceR))/2;
+  //Serial.println(avgDistance);
+  float elapsedTime = speedTimer.read_us();
+  Serial.println("elapsed time is");
+  Serial.println(elapsedTime);
+  float speed = avgDistance/elapsedTime;
+  Serial.println("Average speed is: ");
+  Serial.println(speed);
+  DistanceL = 0.0;//reset distance
+  DistanceR = 0.0;
+}
+
+//Motor setup and function
+  /*speed: 
+    If speed positive, goes forwards. If negative, goes backwards.
+    If turn 0, go straight. If 1, goes left (when going forward), if 2 goes right.
+    These will be reversed when the speed is less than zero.
+    If the speed is set to zero, the motor stops. Probably best if the turn is set to 0 too when this is done.
+
+    0.7 is a good speed.
+  */
+
+int motor(float speed, int turn){
+  MotorAPWM.period(0.001f);// Sets frequency to 100kHz 1ms
+  MotorBPWM.period(0.001f); // Sets frequency to 100kHz
+  if (speed > 0) { //positive, so going forwards
+    MotorADir.write(0);//set direction to forward
+    MotorBDir.write(1);
+    if (turn == 0){//straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){//left (when going forward)
+      MotorBDir.write(1);
+      MotorADir.write(1);// Move opposite direction
+      MotorBPWM.write(abs(speed));
+      MotorAPWM.write(abs(speed));
+
+    }
+    else if (turn == 2){//right (when going forward)
+      MotorADir.write(0);
+      MotorBDir.write(0);// Move opposite direction
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else {
+      //do nothing, maybe just go straight
+    }
+  }
+
+  else  if (speed < 0) { //negative, so going backwards
+    MotorADir.write(1);//set direction to reverse
+    MotorBDir.write(0);
+    if (turn == 0){//straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){//left (when going forward)
+      MotorADir.write(1);
+      MotorAPWM.write(abs(speed));
+
+    }
+    else if (turn == 2){//right (when going forward)
+      MotorBDir.write(0);
+      MotorBPWM.write(abs(speed));
+    }
+    else {
+      //do nothing, maybe just go straight
+    }
+  }
+
+  else {
+    //not forward or back, so made to brake
+    MotorAPWM.write(0);//set each pwm low
+    MotorBPWM.write(1);
+    //set each motor to high z as per datasheet
+    MotorADir.write(0);
+    MotorAPWM.write(0);
+    //set high z
+    MotorBDir.write(0);
+    MotorBPWM.write(0);
+  }
+
+}
+
+//Ultrasonic sensor function
+void UsSensor(){
+  trig.output(); // Sets pin to output
+  trig = 1; // Trigger the ultrasonic sensor to send a pulse for 10us
+  timer.reset();
+  wait_us(10);
+  trig = 0;
+
+  // Wait for a rising edge
+  trig.input(); // Sets pin to input
+  echo.input(); // Sets echo to input
+  while (echo==0) {};
+   // Echo high, starting timer to measure time till we get a reading
+  timer.start();
+  while (echo==1) {};
+  timer.stop();
+  DistanceForward = (timer.read_us()/58.0);  // Divide by 58 as per datasheet for conversion to cm
+  Serial.print("Distance to obstacle forward in cm: ");
+  Serial.print(DistanceForward, DEC); // Print distance in decimal
+  Serial.println();
+  delay(100); // Wait so any echoes return before sending another pulse as per datasheet reccomendation
+}
+
+//IR sensor setup and function
+
+class ir {
+  public:
+  int irSensor(char sensorNumber);
+  int measureLeft();
+  int measureRight();
+};
+
+int ir::irSensor(char sensorNumber) {
+  // If statements to select the left or right IR sensor
+  if (sensorNumber == 0) {
+    measureLeft();
+  }
+  else if (sensorNumber == 1) {
+    measureRight();
+  }
+  else {
+    Serial.println("Input either sensor 1 or 0"); // Error message
+  }
+}
+
+int ir::measureLeft() {
+  mux_cmd = 0x01; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
+  I2C i2c(P0_31, P0_2);              // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_addr = 0xEE;        // select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // writes the mux_cmd to the addresss mux_addr
+  //the sensor is now on bus 0, address 0x80
+
+  char distances[3];    //array distances with 3 values
+  distances[0] = 0x5E;  //high distance
+  distances[1] = 0x5F;  //low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  // write register addresss to read from
+  wait_us(500000);                // wait for sensor response
+  i2c.read(0x80, distances, 3);   //Read distance high
+
+  Serial.println("Distance to left in cm: ");
+  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
+  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  Serial.println();
+}
+
+int ir::measureRight() {
+  mux_cmd = 0x02;  // This selects the other IR sensor when uncommented
+  I2C i2c(P0_31, P0_2);              // initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_addr = 0xEE;        // select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // writes the mux_cmd to the addresss mux_addr
+  //the sensor is now on bus 0, address 0x80
+
+  char distances[3];    //array distances with 3 values
+  distances[0] = 0x5E;  //high distance
+  distances[1] = 0x5F;  //low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  // write register addresss to read from
+  wait_us(500000);                // wait for sensor response
+  i2c.read(0x80, distances, 3);   //Read distance high
+
+  Serial.println("Distance to right in cm: ");
+  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
+  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  Serial.println();
+}
+
+// Robot Mapping
+char occupancy_grid[15][20]; // Using char instead of int to save data space, 10cm squares so divide any distance measurement by 10
+
+void polarToCartesian(int DistanceForward, int theta, int *x, int *y){ //will I have to do one of these for each distance measurement??
+  int DistanceForwardScaled = (DistanceForward/10);
+  theta = 90;// Theta is 90 as the ultrasonic sensor is pointing forward?
+  *x = (int)(DistanceForwardScaled * cos((DistanceForwardScaled/180)*PI));// Note the conversion of angles to radians
+  *y = (int)(DistanceForwardScaled * sin((theta/180)*PI));
+}
+
+void updateOccupancyGrid(){
+
+}
+
+void loop() {
+
+  ir irSensor;
+
+  UsSensor();
+  Serial.println(DistanceForward);
+  polarToCartesian(DistanceForward, 90, *x, *y);
+  Serial.println(&x);
+  Serial.println(&y);
+  updateOccupancyGrid();
+  //Serial.println(occupancy_grid);
+  delay(2500);
+
+}
