@@ -290,13 +290,16 @@ int ir::measureRight() {
 }
 
 // Robot Mapping
-char occupancy_grid[15][20]; // Using char instead of int to save data space
+char occupancy_grid[15][20]; // Using char instead of int to save data space, 10cm squares so divide any distance measurement by 10
 
-void polarToCartesian(double SensorDistance, int theta, int *x, int *y){
-  *x = (int)(SensorDistance * cos((SensorDistance/180)*PI));
-  *y = (int)(SensorDistance * sin((theta/180)*PI));
+void polarToCartesian(int DistanceForward, int theta, int *x, int *y){ //will I have to do one of these for each distance measurement??
+  *x = (int)(DistanceForward * cos((DistanceForward/180)*PI));
+  *y = (int)(DistanceForward * sin((theta/180)*PI));
 }
 
+void UpdateOccupancyGrid(){
+
+}
 
 void loop() {
 
@@ -387,10 +390,18 @@ switch (currentState) {
         Serial.println("Obstacle in front and left");
         currentState = STATE_RIGHT;
       }
+      // These bits make it so it will turn to where there is more room
+      else if ((DistanceLeft - DistanceRight) > 40){
+        currentState = STATE_LEFT;
+      }
+      else if ((DistanceRight - DistanceLeft) > 40){
+        currentState = STATE_RIGHT;
+      }
       else {
         // All other possiblities, it can move forward
         currentState = STATE_FORWARD;// Back to top
       }
+    }
     break;
 
 }
