@@ -391,38 +391,7 @@ switch (currentState) {
         // All other possiblities, it can move forward
         currentState = STATE_FORWARD;// Back to top
       }
-
-
-
-    UsSensor();
-    irSensor.irSensor(0);
-    irSensor.irSensor(1);
-    if (DistanceLeft < 20 || DistanceRight < 20) {
-      Serial.println("Parallel to a wall");
-      currentState = STATE_FORWARD;
-    }
-    else if (DistanceLeft < 10 && DistanceForward < 20) {
-      Serial.println("Obstacle to the left and front");
-      motor(0.7, 2); // Turn right
-      delay(675);
-      motor(0, 0);
-
-      motor(0.7, 0); // Move forward
-      delay(1000);
-      motor(0, 0);
-
-      motor(0.7, 1); // Turn left
-      delay(675);
-      motor(0, 0);
-
-      currentState = STATE_FORWARD;
-    }
-    else {
-      currentState = STATE_CHECK;
-    }
-    }
     break;
-
 
 }
 }
