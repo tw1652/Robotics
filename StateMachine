@@ -8,8 +8,7 @@ enum RobotState {
   STATE_REVERSE,
   STATE_LEFT,
   STATE_RIGHT,
-  STATE_CHECK,
-  STATE_ADJUST
+  STATE_CHECK
 };
 
 RobotState currentState = STATE_FORWARD;
@@ -328,39 +327,14 @@ switch (currentState) {
     motor(0.7, 0);
     delay(1000);
     motor(0, 0); // Move at a set speed for a set time and then break
-    EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
+    /*EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
     EncB.rise(&countPulseB);
     measureDistanceLeft();
     measureDistanceRight();
     Serial.println("Encoder A count:");
     Serial.println(EncCountA);
-    Serial.println("Encoder B count:");
-    Serial.println(EncCountB);// read encoders to find out actually how far the robot goes
-    if (0==1/*check map position for end of first maze*/) {
-      //recognise it has reached goal - need map related stuff
-      currentState = STATE_STOP; 
-    }
-    else if (0==1/*check map position for maze and back aka reached goal*/) {
-      //recognise it has reached goal - need map related stuff
-    }
-    else {
-      UsSensor();
-      irSensor.irSensor(0); // Selects left sensor
-      irSensor.irSensor(1); // Selects right sensor
-      //will need to use some of that data to build map
-      if (DistanceForward < 25 && DistanceRight < 25 && DistanceLeft < 25) { // Stuck in corner
-        currentState = STATE_REVERSE;
-      }
-      else if (DistanceForward < 25 || (DistanceForward < 25 && DistanceRight < 25)) { // Obstacle in front, obstacle to front and right
-        currentState = STATE_LEFT;
-      }
-      else if (DistanceForward < 25 && DistanceLeft < 25) {
-        currentState = STATE_RIGHT;
-      }
-      else {
-        currentState = STATE_FORWARD;// Back to top
-      }
-    }
+    Serial.println("Encoder B count:");*/
+    currentState = STATE_CHECK;
     break;
 
   case STATE_REVERSE:
@@ -368,12 +342,8 @@ switch (currentState) {
     motor(-0.7, 0);
     delay(1000);
     motor(0, 0); // Reverse
-    if (DistanceForward < 25 && DistanceRight < 25 && DistanceLeft < 25) {
-        currentState = STATE_REVERSE; //Back to top until it is out of the corner
-    }
-    else {
-      currentState = STATE_CHECK; // Put to check orientation as that is where it would be if there were no corner
-    }
+    currentState = STATE_CHECK;
+    break;
   
   case STATE_LEFT:
     Serial.println("State: turn left");
@@ -392,37 +362,67 @@ switch (currentState) {
     break;
 
   case STATE_CHECK:
-    Serial.println("State: check orientation");
-    UsSensor();
-    irSensor.irSensor(0);
-    if (DistanceLeft < 25) {
-      currentState = STATE_FORWARD;
+    Serial.println("State: check obstacles");
+      if (0==1/*check map position for end of first maze*/) {
+      //recognise it has reached goal - need map related stuff
+      currentState = STATE_STOP; 
     }
-    else if (DistanceLeft < 25 && DistanceForward < 25) {
-      currentState = STATE_RIGHT;
-      //may need some more logic here, could get stuck or something I think
+    else if (0==1/*check map position for maze and back aka reached goal*/) {
+      //recognise it has reached goal - need map related stuff
     }
     else {
-      currentState = STATE_ADJUST;
+      UsSensor();
+      irSensor.irSensor(0); // Selects left sensor
+      irSensor.irSensor(1); // Selects right sensor
+      //will need to use some of that data to build map
+      if (DistanceForward < 20 && DistanceRight < 10 && DistanceLeft < 10) { // Stuck in corner
+        Serial.println("Stuck in corner");
+        currentState = STATE_REVERSE;
+      }
+      else if (DistanceForward < 20 || (DistanceForward < 10 && DistanceRight <10)) { // Obstacle in front, obstacle to front and right
+        Serial.println("Obstacle in front or front and right");
+        currentState = STATE_LEFT;
+      }
+      else if (DistanceForward < 20 && DistanceLeft < 10) {
+        Serial.println("Obstacle in front and left");
+        currentState = STATE_RIGHT;
+      }
+      else {
+        // All other possiblities, it can move forward
+        currentState = STATE_FORWARD;// Back to top
+      }
+
+
+
+    UsSensor();
+    irSensor.irSensor(0);
+    irSensor.irSensor(1);
+    if (DistanceLeft < 20 || DistanceRight < 20) {
+      Serial.println("Parallel to a wall");
+      currentState = STATE_FORWARD;
+    }
+    else if (DistanceLeft < 10 && DistanceForward < 20) {
+      Serial.println("Obstacle to the left and front");
+      motor(0.7, 2); // Turn right
+      delay(675);
+      motor(0, 0);
+
+      motor(0.7, 0); // Move forward
+      delay(1000);
+      motor(0, 0);
+
+      motor(0.7, 1); // Turn left
+      delay(675);
+      motor(0, 0);
+
+      currentState = STATE_FORWARD;
+    }
+    else {
+      currentState = STATE_CHECK;
+    }
     }
     break;
 
-  case STATE_ADJUST:
-    Serial.println("State: adjust orientation");
-    motor(0.7, 2); 
-    delay(675);
-    motor(0, 0); // Turn right 90
-    UsSensor();
-    if (DistanceForward < 25) {
-      motor(0.7, 2); 
-      delay(675);
-      motor(0, 0); // Turn right 90
-      currentState = STATE_ADJUST; //back to top
-    }
-    else {
-      currentState = STATE_FORWARD;
-    }
-    break;
 
 }
 }
