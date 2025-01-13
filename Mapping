@@ -252,8 +252,8 @@ int ir::measureLeft() {
   i2c.read(0x80, distances, 3);   //Read distance high
 
   Serial.println("Distance to left in cm: ");
-  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance calculation from the datasheet
+  Serial.print(DistanceLeft);
   Serial.println();
 }
 
@@ -273,43 +273,50 @@ int ir::measureRight() {
   i2c.read(0x80, distances, 3);   //Read distance high
 
   Serial.println("Distance to right in cm: ");
-  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance calculation from the datasheet
+  Serial.print(DistanceRight);
   Serial.println();
 }
 
 // Robot Mapping
 int occupancy_grid[30][40]; // 10cm squares so divide any distance measurement by 10, have to use int to allow for 2 to be used to track the robot position
 // Double the actual width of the grid as to account for the robot being placed in a corner. 
-// Going to place the robot in the middle of the map (how?) to account for this
+// Going to place the robot in the middle of the map each time (how?) to account for this
 
 void polarToCartesian(int SensorDistance, int theta, int *x, int *y){ 
-  int SensorDistanceScaled = (SensorDistance/10);
-  theta = 90;// Theta is 90 as the ultrasonic sensor is pointing forward? 0 for pointing left, 180 for right and 270 for backwards. Need to add that to the state machine.
+  float SensorDistanceScaled = (SensorDistance/10);
   *x = (int)(SensorDistanceScaled * cos((SensorDistanceScaled/180)*PI));// Note the conversion of angles to radians
   *y = (int)(SensorDistanceScaled * sin((theta/180)*PI));
 }
 
-void updateOccupancyGrid(){
+void updateOccupancyGrid() {
   int x, y;
   polarToCartesian(DistanceForward, 90, &x, &y); // & to pass by reference
   Serial.println(x);
   Serial.println(y);
-  if (x >= 0 && x < 10 && y >= 0 && y < 10) {// If between 0 to 10 on each, populate the square
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {// If between 0 to 10 on each, populate the square
     occupancy_grid[y][x] = '1';
   }
 
+  if (DistanceLeft >= 63) { // If out of range
+    DistanceLeft = 1000; // Make it a value too large for anything to be written to the grid
+  }
+    else;
   polarToCartesian(DistanceLeft, 180, &x, &y);
   Serial.println(x);
   Serial.println(y);
-  if (x >= 0 && x < 10 && y >= 0 && y < 10) {// If between 0 to 10 on each, populate the square
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {
     occupancy_grid[y][x] = '1';
   }
 
+  if (DistanceRight >= 63) { // If out of range
+    DistanceRight = 1000; // Make it a value too large for anything to be written to the grid
+  }
+    else;
   polarToCartesian(DistanceRight, 0, &x, &y);
   Serial.println(x);
   Serial.println(y);
-  if (x >= 0 && x < 10 && y >= 0 && y < 10) {// If between 0 to 10 on each, populate the square
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {
     occupancy_grid[y][x] = '1';
   }
 }
@@ -333,7 +340,7 @@ void loop() {
         Serial.println();  // New line after each row
     }
 
-  /*motor(0.7, 0);
+  motor(0.7, 0);
   delay(1000);
   motor(0, 0);
 
@@ -344,7 +351,7 @@ void loop() {
   Serial.println("Encoder A count:");
   Serial.println(EncCountA);
   Serial.println("Encoder B count:");
-  Serial.println(EncCountB);*/
+  Serial.println(EncCountB);
 
   delay(2500);
 
