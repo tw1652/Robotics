@@ -20,6 +20,7 @@ void setup() {
   Serial.begin(9600);
 }
 
+
 //Pins for motor function
 PwmOut MotorAPWM(P0_27);
 DigitalOut MotorADir(P0_4);
@@ -263,8 +264,8 @@ int ir::measureLeft() {
   i2c.read(0x80, distances, 3);   //Read distance high
 
   Serial.println("Distance to left in cm: ");
-  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance calculation from the datasheet
+  Serial.print(DistanceLeft);
   Serial.println();
 }
 
@@ -284,21 +285,55 @@ int ir::measureRight() {
   i2c.read(0x80, distances, 3);   //Read distance high
 
   Serial.println("Distance to right in cm: ");
-  Serial.print((distances[0]*16.0+distances[1])/16.0/4);//distance calculation from the datasheet
-  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance value for other use
+  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ;//distance calculation from the datasheet
+  Serial.print(DistanceRight);
   Serial.println();
 }
 
 // Robot Mapping
-char occupancy_grid[15][20]; // Using char instead of int to save data space, 10cm squares so divide any distance measurement by 10
-
-void polarToCartesian(int DistanceForward, int theta, int *x, int *y){ //will I have to do one of these for each distance measurement??
-  *x = (int)(DistanceForward * cos((DistanceForward/180)*PI));
-  *y = (int)(DistanceForward * sin((theta/180)*PI));
+int occupancy_grid[30][40]; // 10cm squares so divide any distance measurement by 10, have to use int to allow for 2 to be used to track the robot position
+// Double the actual width of the grid as to account for the robot being placed in a corner. 
+void placeRobot () {
+  occupancy_grid[15][20] = '2'; // Place robot in the middle of the maze to account for this
 }
 
-void UpdateOccupancyGrid(){
+void polarToCartesian(int SensorDistance, int theta, int *x, int *y){ 
+  float SensorDistanceScaled = (SensorDistance/10);
+  *x = (int)(SensorDistanceScaled * cos((SensorDistanceScaled/180)*PI));// Note the conversion of angles to radians
+  *y = (int)(SensorDistanceScaled * sin((theta/180)*PI));
+}
 
+
+void updateOccupancyGrid() {
+  int x, y;
+  polarToCartesian(DistanceForward, 90, &x, &y); // & to pass by reference
+  Serial.println(x);
+  Serial.println(y);
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {// If between 0 to 10 on each, populate the square
+    occupancy_grid[y][x] = '1';
+  }
+
+  if (DistanceLeft >= 63) { // If out of range
+    DistanceLeft = 1000; // Make it a value too large for anything to be written to the grid
+  }
+    else;
+  polarToCartesian(DistanceLeft, 180, &x, &y);
+  Serial.println(x);
+  Serial.println(y);
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {
+    occupancy_grid[y][x] = '1';
+  }
+
+  if (DistanceRight >= 63) { // If out of range
+    DistanceRight = 1000; // Make it a value too large for anything to be written to the grid
+  }
+    else;
+  polarToCartesian(DistanceRight, 0, &x, &y);
+  Serial.println(x);
+  Serial.println(y);
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {
+    occupancy_grid[y][x] = '1';
+  }
 }
 
 void loop() {
