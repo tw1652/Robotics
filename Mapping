@@ -79,8 +79,8 @@ void measureDistanceLeft() {
     EncCountA++;
   }
   speedTimer.stop();
-  DistanceL = (48*3.14*EncCountA)/660;
-  //diameter by encoder count
+  DistanceL = (4.8*3.14*EncCountA)/660;
+  //diameter in cm by encoder count
   Serial.println("Distance by left motor");
   Serial.println(DistanceL);
 }
@@ -94,7 +94,7 @@ void measureDistanceRight() {
     EncCountB++;
   }
   speedTimer.stop();
-  DistanceR = (48*3.14*EncCountB)/660;
+  DistanceR = (4.8*3.14*EncCountB)/660;
   Serial.println("Distance by right motor");
   Serial.println(DistanceR);
 }
@@ -294,6 +294,12 @@ void polarToCartesian(int SensorDistance, int theta, int *x, int *y){
 
 
 void updateOccupancyGrid() {
+  // take encoder distance measurements with each movement
+  // put this value into a polar to cartesian like fucntion?
+  // then map the coordinates to the grid like below?
+
+  // need to fix below - does not give the correct values that should be written to the grid
+
   int x, y;
   polarToCartesian(DistanceForward, 90, &x, &y); // & to pass by reference
   Serial.println(x);
@@ -336,6 +342,7 @@ void loop() {
   UsSensor();
   irSensor.irSensor(0);
   irSensor.irSensor(1);
+  /*
   updateOccupancyGrid();
   //print occupancy grid - get rid of this before submission - clogs it up
     for (int row = 0; row < 30; row++) {   // Loop through each row
@@ -345,7 +352,7 @@ void loop() {
         Serial.println();  // New line after each row
     }
 
-  motor(0.7, 0);
+ */ motor(0.7, 0);
   delay(1000);
   motor(0, 0);
 
