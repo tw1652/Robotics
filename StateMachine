@@ -90,7 +90,7 @@ void measureDistanceLeft() {
     EncCountA++;
   }
   speedTimer.stop();
-  DistanceL = (48*3.14*EncCountA)/660;
+  DistanceL = (4.8*3.14*EncCountA)/660;
   //diameter by encoder count
   Serial.println("Distance by left motor");
   Serial.println(DistanceL);
@@ -105,7 +105,7 @@ void measureDistanceRight() {
     EncCountB++;
   }
   speedTimer.stop();
-  DistanceR = (48*3.14*EncCountB)/660;
+  DistanceR = (4.8*3.14*EncCountB)/660;
   Serial.println("Distance by right motor");
   Serial.println(DistanceR);
 }
@@ -363,8 +363,8 @@ switch (currentState) {
   case STATE_FORWARD:
     Serial.println("State: forward");
     motor(0.7, 0);
-    delay(1000);
-    motor(0, 0); // Move at a set speed for a set time and then break
+    delay(500);
+    motor(0, 0); // Move at a set speed for a set time and then break, should move forward 10cm
     EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
     EncB.rise(&countPulseB);
     measureDistanceLeft();
@@ -375,7 +375,7 @@ switch (currentState) {
   case STATE_REVERSE:
     Serial.println("State: reverse");
     motor(-0.7, 0);
-    delay(1000);
+    delay(500);
     motor(0, 0); // Reverse
     EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
     EncB.rise(&countPulseB);
@@ -432,7 +432,7 @@ switch (currentState) {
       }
       // These bits make it so it will turn to where there is more room
       else if ((DistanceLeft - DistanceRight) > 40){
-        currentState = STATE_LEFT;
+          currentState = STATE_LEFT;
       }
       else if ((DistanceRight - DistanceLeft) > 40){
         currentState = STATE_RIGHT;
