@@ -78,8 +78,9 @@ void measureDistanceLeft() {
   while (abs(EncCountA) < 660){
     EncCountA++;
   }
+  EncCountA = EncCountA * 1.25;
   speedTimer.stop();
-  DistanceL = (4.8*3.14*EncCountA)/660;
+  DistanceL = (4.8*3.14*EncCountA)/660; 
   //diameter in cm by encoder count
   Serial.println("Distance by left motor");
   Serial.println(DistanceL);
@@ -94,6 +95,7 @@ void measureDistanceRight() {
     EncCountB++;
   }
   speedTimer.stop();
+  EncCountB = EncCountB * 1.25;
   DistanceR = (4.8*3.14*EncCountB)/660;
   Serial.println("Distance by right motor");
   Serial.println(DistanceR);
