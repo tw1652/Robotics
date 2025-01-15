@@ -350,7 +350,7 @@ switch (currentState) {
     delay(1000);
     motor(0, 0); // Move forward
 
-    motor(-0.7, 0)
+    motor(-0.7, 0);
     delay(1000);
     motor(0, 0); // Reverse
 
@@ -365,7 +365,7 @@ switch (currentState) {
     motor(0.7, 2);
     delay(675);
     motor(0, 0); // Move right
-    
+
     motor(0.7, 1); 
     delay(675);
     motor(0, 0); // Move left
@@ -415,7 +415,7 @@ switch (currentState) {
   
   case STATE_LEFT:
     Serial.println("State: turn left");
-    motor(0.7, 1); // Move left
+    motor(0.7, 1); // Turn left
     delay(675);
     motor(0, 0);
     EncCountA = 0;
@@ -425,7 +425,7 @@ switch (currentState) {
 
   case STATE_RIGHT:
     Serial.println("State: turn right");
-    motor(0.7, 2); // Move right
+    motor(0.7, 2); // Turn right
     delay(675);
     motor(0, 0);
     EncCountA = 0;
@@ -446,12 +446,76 @@ switch (currentState) {
       UsSensor();
       irSensor.irSensor(0); // Selects left sensor
       irSensor.irSensor(1); // Selects right sensor
-      //will need to use some of that data to build map
+      updateOccupancyGrid(); // Use that data to buld map
+
+      // Left wall following - covering all scenarios
+      /*
+      if (DistanceLeft > 15 && DistanceForward > 20) { // 000 and 001, need to find 
+        Serial.println("finding wall");
+        motor(0.7, 1); // Turn left
+        delay(675);
+        motor(0, 0);
+        motor(0.7, 0);
+        delay(500);
+        motor(0, 0);
+        motor(0.7, 2); // Turn right
+        delay(675);
+        motor(0, 0);
+        currentState = STATE_CHECK;
+      }
+      else if (DistanceLeft > 15 && DistanceForward < 20) { // 010, 011, need to find wall with object in front
+        Serial.println("finding wall, object in front");
+        motor(0.7, 1); // Turn left
+        delay(675);
+        motor(0, 0);
+        while (DistanceRight < 15) {
+          motor(0.7, 0); // Forward
+          delay(500);
+          motor(0, 0);
+          irSensor.irSensor(1);
+        }
+        motor(0.7, 2); // Turn right
+        delay(675);
+        motor(0, 0);
+        currentState = STATE_CHECK;
+      }
+      else if (DistanceLeft < 15 && DistanceForward < 20) { // 100, 101, wall found
+        Serial.println("wall found");
+        currentState = STATE_FORWARD;
+      }
+      else if (DistanceLeft < 15 && DistanceForward < 20) { //110
+        Serial.println("wall found but obstacle in front");
+        motor(0.7, 2); // Turn right
+        delay(675);
+        motor(0, 0);
+        motor(0.7, 0);
+        delay(500);
+        motor(0, 0);
+        while (DistanceLeft < 15) {
+          motor(0.7, 0);
+          delay(500);
+          motor(0, 0);
+          irSensor.irSensor(0);
+        }
+        motor(0.7, 1); // Turn left
+        delay(675);
+        motor(0, 0);
+        currentState = STATE_CHECK;
+      }
+      else if (DistanceLeft < 15 && DistanceForward < 20 && DistanceRight < 15) { //111
+        Serial.println("stuck in corner");
+        currentState = STATE_REVERSE;
+      }
+      else {
+        Serial.println("Something has gone wrong");
+        currentState = STATE_STOP;
+      }
+*/
       if (DistanceForward < 20 && DistanceRight < 10 && DistanceLeft < 10) { // Stuck in corner
         Serial.println("Stuck in corner");
         currentState = STATE_REVERSE;
       }
-      else if (DistanceForward < 20 || (DistanceForward < 10 && DistanceRight <10)) { // Obstacle in front, obstacle to front and right
+      else if (DistanceForward < 20 || (DistanceForward < 10 && DistanceRight < 10)) { // Obstacle in front, obstacle to front and right
         Serial.println("Obstacle in front or front and right");
         currentState = STATE_LEFT;
       }
