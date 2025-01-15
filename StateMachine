@@ -3,7 +3,8 @@
 #include <math.h> // For the mapping coordinates
 
 enum RobotState {
-  STATE_STOP = 0,
+  STATE_START = 0,
+  STATE_STOP,
   STATE_FORWARD,
   STATE_REVERSE,
   STATE_LEFT,
@@ -11,7 +12,7 @@ enum RobotState {
   STATE_CHECK
 };
 
-RobotState currentState = STATE_FORWARD;
+RobotState currentState = STATE_START;
 
 using namespace rtos;
 using namespace::mbed;
@@ -342,6 +343,34 @@ void loop() {
 switch (currentState) {
 
   ir irSensor;  
+
+  case STATE_START:
+    Serial.println("State: start");
+    motor(0.7, 0);
+    delay(1000);
+    motor(0, 0); // Move forward
+
+    motor(-0.7, 0)
+    delay(1000);
+    motor(0, 0); // Reverse
+
+    motor(0.7, 1); 
+    delay(675);
+    motor(0, 0); // Move left
+
+    motor(0.7, 2);
+    delay(675);
+    motor(0, 0); // Move right
+
+    motor(0.7, 2);
+    delay(675);
+    motor(0, 0); // Move right
+    
+    motor(0.7, 1); 
+    delay(675);
+    motor(0, 0); // Move left
+
+    currentState = STATE_FORWARD;
 
   case STATE_STOP:
     Serial.println("State: stop");
