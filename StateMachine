@@ -482,6 +482,7 @@ switch (currentState) {
     Serial.println("Turning function demonstrated, starting maze navigation");
 
     currentState = STATE_FORWARD;
+    break;
 
   case STATE_STOP:
     Serial.println("State: stop");
@@ -497,7 +498,7 @@ switch (currentState) {
     else {
       // Must be back at the start
       //Finish Status
-      for (int i = 0; i < 10; i++)
+      for (int i = 0; i < 10; i++) {
         LED(6);
         delay(200);
       }
@@ -572,6 +573,13 @@ switch (currentState) {
       irSensor.irSensor(0); // Selects left sensor
       irSensor.irSensor(1); // Selects right sensor
       updateOccupancyGrid(); // Use that data to buld map
+      //print occupancy grid
+      for (int row = 0; row < 30; row++) {   // Loop through each row
+        for (int col = 0; col < 40; col++) { // Loop through each column
+            Serial.print(occupancy_grid[row][col]); // Print each cell
+        }
+        Serial.println();  // New line after each row
+      }  
 
       if (DistanceForward < 20 && DistanceRight < 10 && DistanceLeft < 10) { // Stuck in corner
         Serial.println("Stuck in corner");
@@ -600,4 +608,5 @@ switch (currentState) {
     break;
 
 }
+
 }
