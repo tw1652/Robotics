@@ -44,6 +44,9 @@ DigitalInOut echo(P1_14);
 Timer timer;
 int DistanceForward = 0;
 int correction = 0;
+int travel = 0;
+
+int help = 0;
 
 //IR sensor setup
 char mux_cmd;
@@ -90,21 +93,16 @@ void LED(int colour){
   }
   else if (colour == 4){
     //green flash - start
+    for (int i = 0; i < 5; i++) {
     digitalWrite(LEDR, HIGH);
     digitalWrite(LEDG, LOW);
     digitalWrite(LEDB, HIGH);
     delay(200);
     digitalWrite(LEDR, HIGH);
-    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDG, HIGH);
     digitalWrite(LEDB, HIGH);
     delay(200);
-    digitalWrite(LEDR, HIGH);
-    digitalWrite(LEDG, LOW);
-    digitalWrite(LEDB, HIGH);
-    delay(200);
-    digitalWrite(LEDR, HIGH);
-    digitalWrite(LEDG, LOW);
-    digitalWrite(LEDB, HIGH);
+    }
   }
   else if (colour == 5){
     //yellow - reverse
@@ -439,10 +437,10 @@ switch (currentState) {
   ir irSensor;  
 
   case STATE_START:
-    delay(1500);
+    delay(1000);
     Serial.println("State: start");
     LED(4);
-    delay(500);
+    LED(3);
     motor(0.7, 0);
     delay(1000);
     motor(0, 0); // Move forward
@@ -456,29 +454,29 @@ switch (currentState) {
     delay(1200);
 
     motor(0.7, 1); 
-    delay(675);
+    delay(660);
     motor(0, 0); // Move left
 
     delay(1200);
 
     motor(0.7, 2);
-    delay(675);
+    delay(660);
     motor(0, 0); // Move right
 
     delay(1200);
 
 
     motor(0.7, 2);
-    delay(675);
+    delay(660);
     motor(0, 0); // Move right
 
     delay(1200);
 
     motor(0.7, 1); 
-    delay(675);
+    delay(660);
     motor(0, 0); // Move left
 
-    delay(2000);
+    delay(1500);
     Serial.println("Turning function demonstrated, starting maze navigation");
 
     currentState = STATE_FORWARD;
@@ -496,10 +494,21 @@ switch (currentState) {
       currentState = STATE_FORWARD;
     }
     else {
-      // Must be back at the start
+      // Must be back at the start or failed
+      if (help = 1) {
+        Serial.println("RONALD is broken :(");
+        for (int i = 0; i < 10; i++) {
+          LED(5);
+          delay(200);
+          LED(1);
+          delay(200);
+      }
+      }
       //Finish Status
       for (int i = 0; i < 10; i++) {
         LED(6);
+        delay(200);
+        LED(1);
         delay(200);
       }
       //Press button for reset
@@ -509,13 +518,11 @@ switch (currentState) {
   case STATE_FORWARD:
     Serial.println("State: forward");
     LED(3);
+    UsSensor();
+    travel = DistanceForward*10; // Move forward
     motor(0.7, 0);
-    delay(500);
-    motor(0, 0); // Move at a set speed for a set time and then break, should move forward 10cm
-    EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
-    EncB.rise(&countPulseB);
-    measureDistanceLeft();
-    measureDistanceRight();
+    delay(travel);
+    motor(0, 0);
     updateRobotPosition();
     currentState = STATE_CHECK;
     break;
@@ -538,8 +545,17 @@ switch (currentState) {
     Serial.println("State: turn left");
     LED(7);
     motor(0.7, 1); // Turn left
-    delay(675);
+    delay(660);
     motor(0, 0);
+    UsSensor();
+    travel = DistanceForward*20; // Move forward as close to wall as possible
+    motor(0.7, 0);
+    delay(travel);
+    motor(0, 0); 
+
+    motor(0.7, 2);
+    delay(660);
+    motor(0, 0); // Move back to forward
     EncCountA = 0;
     EncCountB = 0;
     updateRobotPosition();
@@ -550,10 +566,30 @@ switch (currentState) {
     Serial.println("State: turn right");
     LED(7);
     motor(0.7, 2); // Turn right
-    delay(675);
+    delay(660);
     motor(0, 0);
+    UsSensor();
+    travel = DistanceForward*20; // Move forward as close to wall as possible
+    motor(0.7, 0);
+    delay(travel);
+    motor(0, 0); 
+
+    motor(0.7, 1);
+    delay(660);
+    motor(0, 0); // Move back to forward orientation
     EncCountA = 0;
     EncCountB = 0;
+
+    UsSensor();
+    if (DistanceForward >= 30) {  //check nothing is in front
+      travel = DistanceForward*30; // Move further forward to follow the wall
+      motor(0.7, 0);
+      delay(travel);
+      motor(0, 0); 
+    }
+    else {
+    }
+    
     updateRobotPosition();
     currentState = STATE_CHECK;
     break;
@@ -565,44 +601,44 @@ switch (currentState) {
       //Recognise it has reached a goal, either first run or second
       currentState = STATE_STOP; 
     }
-    else if (1==0) {//encoder counts aren't incrementing
-      Serial.println("Wheel stuck!!");
-    }
     else {
       UsSensor();
       irSensor.irSensor(0); // Selects left sensor
       irSensor.irSensor(1); // Selects right sensor
       updateOccupancyGrid(); // Use that data to buld map
-      //print occupancy grid
+      /*print occupancy grid
       for (int row = 0; row < 30; row++) {   // Loop through each row
         for (int col = 0; col < 40; col++) { // Loop through each column
             Serial.print(occupancy_grid[row][col]); // Print each cell
         }
         Serial.println();  // New line after each row
-      }  
+      }  */
 
-      if (DistanceForward < 20 && DistanceRight < 10 && DistanceLeft < 10) { // Stuck in corner
+      // Left wall following - covering all scenarios
+      if (DistanceLeft >= 30 && DistanceForward >= 30) { // 000 and 001, need to find 
+        Serial.println("Finding wall");
+        currentState = STATE_LEFT;
+      }
+      else if (DistanceLeft >= 30 && DistanceForward <= 30) { // 010, 011, need to find wall with object in front
+        Serial.println("Finding wall, object in front");
+        currentState = STATE_LEFT;
+      }
+      else if (DistanceLeft <= 30 && DistanceForward >= 30) { // 100, 101, wall found
+        Serial.println("Wall found");
+        currentState = STATE_FORWARD;
+      }
+      else if (DistanceLeft <= 30 && DistanceForward <= 30) { //110
+        Serial.println("Wall found but obstacle in front");
+        currentState = STATE_RIGHT;
+      }
+      else if (DistanceLeft <= 20 && DistanceForward <= 20 && DistanceRight <= 20) { //111
         Serial.println("Stuck in corner");
         currentState = STATE_REVERSE;
       }
-      else if (DistanceForward < 20 || (DistanceForward < 10 && DistanceRight < 10)) { // Obstacle in front, obstacle to front and right
-        Serial.println("Obstacle in front or front and right");
-        currentState = STATE_LEFT;
-      }
-      else if (DistanceForward < 20 && DistanceLeft < 10) {
-        Serial.println("Obstacle in front and left");
-        currentState = STATE_RIGHT;
-      }
-      // These bits make it so it will turn to where there is more room
-      else if ((DistanceLeft - DistanceRight) > 40){
-          currentState = STATE_LEFT;
-      }
-      else if ((DistanceRight - DistanceLeft) > 40){
-        currentState = STATE_RIGHT;
-      }
       else {
-        // All other possiblities, it can move forward
-        currentState = STATE_FORWARD;// Back to top
+        Serial.println("Something has gone wrong");
+        help = 1;
+        currentState = STATE_STOP;
       }
     }
     break;
