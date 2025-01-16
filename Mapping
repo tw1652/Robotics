@@ -81,8 +81,8 @@ void measureDistanceLeft() {
   speedTimer.stop();
   DistanceL = (4.8*3.14*EncCountA)/660; 
   //diameter in cm multiplied by encoder count
-  Serial.println("Distance by left motor");
-  Serial.println(DistanceL);
+  //Serial.println("Distance by left motor");
+  //Serial.println(DistanceL);
 }
 
 void measureDistanceRight() {
@@ -95,8 +95,8 @@ void measureDistanceRight() {
   speedTimer.stop();
   EncCountB = EncCountB * 1.25;
   DistanceR = (4.8*3.14*EncCountB)/660;
-  Serial.println("Distance by right motor");
-  Serial.println(DistanceR);
+  //Serial.println("Distance by right motor");
+  //Serial.println(DistanceR);
 }
 
 void measureSpeed() {
@@ -375,9 +375,12 @@ void loop() {
         Serial.println();  // New line after each row
   }
   
-  /*motor(0.7, 0);
+  motor(0.7, 0);
   delay(1000);
   motor(0, 0);
+
+  updateRobotPosition();
+  /*
 
   EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
   EncB.rise(&countPulseB);
@@ -408,3 +411,4 @@ void loop() {
 
   delay(2500);
 }
+
