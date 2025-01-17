@@ -1,5 +1,16 @@
+//Exam number: Y3920193
+/*
+
+References:
+
+[1] cplusplus.com (2023). <iostream> [Online]. Available: https://cplusplus.com/reference/iostream/
+
+[2] Arduino Help Center (2024, October 23). Control the RGB LED on Nano 33 BLE board- Arduino Help Center [Online]. Available: https://support.arduino.cc/hc/en-us/articles/360016724140-Control-the-RGB-LED-on-Nano-33-BLE-boards
+  
+
+*/
 #include <mbed.h>
-#include <iostream> // Used for the ABS function, taken from: https://cplusplus.com/reference/iostream/
+#include <iostream> // Used for the ABS function [1]
 #include <math.h> // For the mapping coordinates
 
 enum RobotState {
@@ -20,10 +31,7 @@ using namespace::mbed;
 void setup() {
   Serial.begin(9600);
   placeRobot();
-  //LED setup
-  /*
-  LED setup, functions and implementation from: https://support.arduino.cc/hc/en-us/articles/360016724140-Control-the-RGB-LED-on-Nano-33-BLE-boards
-  */
+  //LED setup [2]
   pinMode(LEDR, OUTPUT);
   pinMode(LEDG, OUTPUT);
   pinMode(LEDB, OUTPUT);
@@ -46,6 +54,7 @@ int DistanceForward = 0;
 int correction = 0;
 int travel = 0;
 
+// Global variable for when robot is stuck
 int help = 0;
 
 //IR sensor setup
@@ -71,7 +80,7 @@ float SpeedA = 0.0;
 float SpeedB = 0.0;
 
 
-//LED functions
+//LED functions [2]
 void LED(int colour){
   if (colour == 1) {
     //white - sensing
@@ -227,9 +236,7 @@ int motor(float speed, int turn){
       MotorAPWM.write(abs(speed));
       MotorBPWM.write(abs(speed));
     }
-    else {
-      // Do nothing
-    }
+    else; // Do nothing
   }
 
   else  if (speed < 0) { // Negative, so going backwards
@@ -248,9 +255,7 @@ int motor(float speed, int turn){
       MotorBDir.write(0);
       MotorBPWM.write(abs(speed));
     }
-    else {
-      // Do nothing
-    }
+    else; // Do nothing
   }
 
   else {
@@ -292,14 +297,14 @@ void UsSensor(){
 
 //IR sensor setup and function
 
-class ir {
+class IR {
   public:
   int irSensor(char sensorNumber);
   int measureLeft();
   int measureRight();
 };
 
-int ir::irSensor(char sensorNumber) {
+int IR::irSensor(char sensorNumber) {
   // If statements to select the left or right IR sensor
   if (sensorNumber == 0) {
     measureLeft();
@@ -312,7 +317,7 @@ int ir::irSensor(char sensorNumber) {
   }
 }
 
-int ir::measureLeft() {
+int IR::measureLeft() {
   mux_cmd = 0x01; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
   I2C i2c(P0_31, P0_2);              // Initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
   const char mux_addr = 0xEE;        // Select bus 0 on mux chip
@@ -333,7 +338,7 @@ int ir::measureLeft() {
   Serial.println();
 }
 
-int ir::measureRight() {
+int IR::measureRight() {
   mux_cmd = 0x02;  // This selects the other IR sensor when uncommented
   I2C i2c(P0_31, P0_2);              // Initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
   const char mux_addr = 0xEE;        // Select bus 0 on mux chip
@@ -387,26 +392,22 @@ void updateRobotPosition() {
 }
 
 void updateOccupancyGrid() {
-  // take encoder distance measurements with each movement
-  // put this value into a polar to cartesian like fucntion?
-  // then map the coordinates to the grid like below?
-
   int x, y;
 
-  // use the robot's x position for the x value for the ultrasonic sensor, increment for each movement
+  // Use the robot's x position for the x value for the ultrasonic sensor, increment for each movement
   x = x + rx;
   polarToCartesian(DistanceForward, 90, &x, &y); // & to pass by reference
   Serial.println(x);
   Serial.println(y);
-  if (x >= 0 && x < 30 && y >= 0 && y < 40) {// if within the bounds of grid
-    occupancy_grid[y][x] = 1;
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) { // If within the bounds of grid
+    occupancy_grid[y][x] = 1; // Mark as obstacle
   }
 
   if (DistanceLeft >= 63) { // If out of range
     DistanceLeft = 1000; // Make it a value too large for anything to be written to the grid
   }
     else;
-  // use the robot's y position for the y value for the ir sensors
+  // Use the robot's y position for the y value for the IR sensors
   y = y + ry;
   polarToCartesian(DistanceLeft, 180, &x, &y);
   Serial.println(x);
@@ -419,7 +420,7 @@ void updateOccupancyGrid() {
     DistanceRight = 1000; // Make it a value too large for anything to be written to the grid
   }
     else;
-  // use the robot's y position for the y value for the ir sensors
+  // Use the robot's y position for the y value for the IR sensors
   y = y + ry;
   polarToCartesian(DistanceRight, 0, &x, &y);
   Serial.println(x);
@@ -434,7 +435,7 @@ void loop() {
 
 switch (currentState) {
 
-  ir irSensor;  
+  IR irSensor;  
 
   case STATE_START:
     delay(1000);
@@ -486,7 +487,7 @@ switch (currentState) {
     Serial.println("State: stop");
     LED(2);
     motor(0, 0); //Stop motor
-    if (rx == 40 || rx == 0) {// At end of first run, gone either forward or backward
+    if ((rx == 40 || rx == 0) && (ry == 30 || ry == 0)) {// At end of first run, gone either forward or backward
       LED(6);
       motor(-0.7, 2);
       delay(1350);
@@ -504,14 +505,16 @@ switch (currentState) {
           delay(200);
       }
       }
+      else {
       //Finish Status
       for (int i = 0; i < 10; i++) {
         LED(6);
         delay(200);
         LED(1);
         delay(200);
-      }
+        }
       //Press button for reset
+      }
     }
     break;
 
@@ -533,11 +536,6 @@ switch (currentState) {
     motor(-0.7, 0);
     delay(500);
     motor(0, 0); // Reverse
-    EncA.rise(&countPulseA); // Counts pulses, points to the interrupt callback, & gives the address
-    EncB.rise(&countPulseB);
-    measureDistanceLeft();
-    measureDistanceRight();
-    updateRobotPosition();
     currentState = STATE_CHECK;
     break;
   
@@ -559,6 +557,7 @@ switch (currentState) {
     EncCountA = 0;
     EncCountB = 0;
     updateRobotPosition();
+    updateOccupancyGrid();
     currentState = STATE_CHECK;
     break;
 
@@ -571,7 +570,7 @@ switch (currentState) {
     UsSensor();
     travel = DistanceForward*20; // Move forward as close to wall as possible
     motor(0.7, 0);
-    delay(travel);
+    delay(travel); // Move realtive to distance in front
     motor(0, 0); 
 
     motor(0.7, 1);
@@ -581,23 +580,23 @@ switch (currentState) {
     EncCountB = 0;
 
     UsSensor();
-    if (DistanceForward >= 30) {  //check nothing is in front
+    if (DistanceForward >= 30) {  // Check nothing is in front
       travel = DistanceForward*30; // Move further forward to follow the wall
       motor(0.7, 0);
       delay(travel);
       motor(0, 0); 
     }
-    else {
-    }
+    else;
     
     updateRobotPosition();
+    updateOccupancyGrid();
     currentState = STATE_CHECK;
     break;
 
   case STATE_CHECK:
     Serial.println("State: check obstacles");
     LED(1);
-    if (rx == 40 || rx == 0) { // Check map position for end of maze
+    if ((rx == 40 || rx == 0) && (ry == 30 || ry == 0)) { // Check map position for end of maze
       //Recognise it has reached a goal, either first run or second
       currentState = STATE_STOP; 
     }
@@ -627,15 +626,15 @@ switch (currentState) {
         Serial.println("Wall found");
         currentState = STATE_FORWARD;
       }
-      else if (DistanceLeft <= 30 && DistanceForward <= 30) { //110
+      else if (DistanceLeft <= 30 && DistanceForward <= 30) { // 110
         Serial.println("Wall found but obstacle in front");
         currentState = STATE_RIGHT;
       }
-      else if (DistanceLeft <= 20 && DistanceForward <= 20 && DistanceRight <= 20) { //111
+      else if (DistanceLeft <= 20 && DistanceForward <= 20 && DistanceRight <= 20) { // 111
         Serial.println("Stuck in corner");
         currentState = STATE_REVERSE;
       }
-      else {
+      else { // A scenario not programmed is found
         Serial.println("Something has gone wrong");
         help = 1;
         currentState = STATE_STOP;
