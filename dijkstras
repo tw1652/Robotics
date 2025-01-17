@@ -1,0 +1,89 @@
+struct coord{
+  int x; 
+  int y;
+};
+
+struct frontier_node{
+  int distance;
+  int x;
+  int y;
+};
+
+char occ_map[X_SIZE] [Y_SIZE] = {{1,0,0,0,1},
+                                 {1,0,0,0,1},
+                                 {1,1,1,0,1},
+                                 {1,0,1,0,1},
+                                 {1,0,1,0,1},
+                                 {1,0,1,0,1},
+                                 {1,0,1,0,1},
+                                 {1,0,1,0,1},
+                                 {1,0,1,0,1}
+                                 {1,0,0,0,1},};
+
+coord start = {1,1};
+coord goal = {8,1};
+
+void dijkstras(char map[X_SIZE] [Y_SIZE], coord start, coord goal) {
+  //Array of adjacent nodes to explore
+  coord delta[4] = {{-1,0},{0,-1},{1,0},{0,1}};
+
+  // Distance variable to keep track of distance to start node
+  int dist = 0;
+  // Array of frontier nodes taht store our current node
+  frontier_node frontier_nodes[N_NODES];
+  // Array to keep track of which nodes have been explored
+  char processed[X_SIZE] [Y_SIZE];
+  // Array to store possible routes through the mase
+  char possible_nodes[X_SIZE][Y_SIZE];
+}
+
+// Initialise arrays.
+ for(int i=0;i<N_NODES;i++) {
+  frontier_nodes[i].distance = INFINITY;
+  frontier_nodes[i].x = 0;
+  frontier_nodes[i].y = 0;
+ }
+ for(int x=0;x<X_SIZE;x++) {
+  for(int y=0;y<Y_SIZE;y++) {
+    processed[x][y] = 0;
+    possible_nodes[x][y] = 0;
+  }
+ }
+
+frontier_node startPos = {0,start.x,start.y};
+frontier_nodes[0] = startPos;
+
+void loop() {
+  for(int count=0; coint<N_NODES;count++) {
+    // Locally store the current node we are exploring.
+    frontier_node current_node = frontier_nodes[count];
+    // Locally store the distance from the current node to the start node.
+    dist = current_node.distance;
+
+    // If the current node is the goal node.
+    if(current_node.x == goal.x && current_node.y == goal.y) {
+      #ifdef PRINT_DEBUG
+        Serial.println("Goal_Found");
+        // Print the possible frount nodes in a 2D array to the console.
+        for(int x=0;x<X_SIZE;x++) {
+          for(int y=0;y<X_SIZE;y++) {
+            if(map[x][y] ==1) {
+              possible_nodes[x][y] = 1;
+            }
+            Serial.println(possible_nodes[x] [y]);
+          }
+          Serial.println();
+        }
+        // Print the list of frontier nodes. This can be used to obtain the shortest path.
+        for(int i=0;i<N_NODES;i++) {
+          Serial.println(frontier_nodes[i].x,frontier_nodes[i].y,frontier_nodes[i].distance);
+          if(frontier_nodes[i].distance==INFINITY) break; //Break from loop
+          // so as not to print all of the unexlpored nodes
+        }
+    }
+    #endif
+    break; // Break from loop
+  }
+
+  //last pic in here
+}
