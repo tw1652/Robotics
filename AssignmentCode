@@ -1,0 +1,709 @@
+//Exam number: Y3920193
+/*
+
+References:
+
+[1] cplusplus.com (2023). <iostream> [Online]. Available: https://cplusplus.com/reference/iostream/
+
+[2] Arduino Help Center (2024, October 23). Control the RGB LED on Nano 33 BLE board- Arduino Help Center [Online]. Available: https://support.arduino.cc/hc/en-us/articles/360016724140-Control-the-RGB-LED-on-Nano-33-BLE-boards
+  
+
+*/
+#include <mbed.h>
+#include <iostream> // Used for the ABS function [1]
+#include <math.h> // For the mapping coordinates
+
+enum RobotState {
+  STATE_START = 0,
+  STATE_STOP,
+  STATE_FORWARD,
+  STATE_REVERSE,
+  STATE_LEFT,
+  STATE_RIGHT,
+  STATE_CHECK,
+  STATE_CHECK_ORIENTATION
+};
+
+RobotState currentState = STATE_START;
+
+using namespace rtos;
+using namespace::mbed;
+
+void setup() {
+  Serial.begin(9600);
+  placeRobot();
+  //LED setup [2]
+  pinMode(LEDR, OUTPUT);
+  pinMode(LEDG, OUTPUT);
+  pinMode(LEDB, OUTPUT);
+}
+
+
+//Pins for motor function
+PwmOut MotorAPWM(P0_27);
+DigitalOut MotorADir(P0_4);
+PwmOut MotorBPWM(P1_2);
+DigitalOut MotorBDir(P0_5);
+
+//Pins for US function
+DigitalInOut trig(P1_14); // Puts it on sensor 2 position on the board
+DigitalInOut echo(P1_14);
+
+//US sensor setup
+Timer timer;
+int DistanceForward = 0;
+int correction = 0;
+int travel = 0;
+
+// Global variable for when robot is stuck
+int help = 0;
+
+//IR sensor setup
+char mux_cmd;
+int DistanceLeft = 0;
+int DistanceRight = 0;
+int DistanceCal = 0;
+int calibrationDist = 0;
+
+//Encoder inputs and counts
+InterruptIn EncA(P1_11);
+long int ShaftRevA = 0;
+long int EncCountA = 0;
+// Long ints used to stop numerical overflow as large values
+
+InterruptIn EncB(P1_12);
+long int ShaftRevB = 0;
+long int EncCountB = 0;
+
+//Encoder setup
+Timer speedTimer;
+float DistanceL = 0.0;
+float DistanceR = 0.0;
+float SpeedA = 0.0;
+float SpeedB = 0.0;
+
+
+//LED functions [2]
+void LED(int colour){
+  if (colour == 1) {
+    //white - sensing
+    digitalWrite(LEDR, LOW);
+    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDB, LOW);
+  }
+  else if (colour == 2){
+    //red - stop
+    digitalWrite(LEDR, LOW);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, HIGH);
+  }
+  else if (colour == 3){
+    //green - fwd
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDB, HIGH);
+  }
+  else if (colour == 4){
+    //green flash - start
+    for (int i = 0; i < 5; i++) {
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDB, HIGH);
+    delay(200);
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, HIGH);
+    delay(200);
+    }
+  }
+  else if (colour == 5){
+    //yellow - reverse
+    digitalWrite(LEDR, LOW);
+    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDB, HIGH);
+  }
+  else if (colour == 6){
+    //magenta - goal reached
+    digitalWrite(LEDR, LOW);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, LOW);
+  }
+  else if (colour == 7){
+    //cyan - turning
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDB, LOW);
+  }
+  else if (colour == 8){
+    //blue - orientating
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, LOW);
+  }
+  }
+
+//Encoder function
+// Counts the number of encoder pulses 
+
+void countPulseA(){
+   if(MotorADir == 0)//if going forward
+     EncCountA+=1;//count up
+   else
+     EncCountA-=1;//count down
+
+}
+
+void countPulseB(){
+   if(MotorBDir == 1)//if going forward
+     EncCountB+=1;//count up
+   else
+     EncCountB-=1;//count down
+  //FIXING ENCODER  hardware error by doubling count
+
+}
+
+void measureDistanceLeft() {
+  DistanceL = 0.0;
+  speedTimer.reset(); // Timer for speed measuring method
+  speedTimer.start();
+  while (abs(EncCountA) < 660){
+    EncCountA++;
+  }
+  EncCountA = EncCountA * 1.25;
+  speedTimer.stop();
+  DistanceL = (4.8*3.14*EncCountA)/660; 
+  //diameter in cm multiplied by encoder count
+  //Serial.println("Distance by left motor");
+  //Serial.println(DistanceL);
+}
+
+void measureDistanceRight() {
+  DistanceR = 0.0;
+  speedTimer.reset();
+  speedTimer.start();
+  while (abs(EncCountB) < 660) {
+    EncCountB++;
+  }
+  speedTimer.stop();
+  EncCountB = EncCountB * 1.25;
+  DistanceR = (4.8*3.14*EncCountB)/660;
+  //Serial.println("Distance by right motor");
+  //Serial.println(DistanceR);
+}
+
+void measureSpeed() {
+  float diffDistance = abs(DistanceR - DistanceL);
+  float newDistanceL = DistanceL+(diffDistance/2);
+  float newDistanceR = DistanceR-(diffDistance/2);//error correction, make both values in the middle as they were quite far out
+  //Serial.println(diffDistance);
+  //Serial.println(newDistanceL); // For testing
+  //Serial.println(newDistanceR);
+  
+  float avgDistance = (abs(newDistanceL)+abs(newDistanceR))/2;
+  //Serial.println(avgDistance);
+  float elapsedTime = speedTimer.read_us(); // Total time
+  Serial.println("elapsed time is");
+  Serial.println(elapsedTime);
+  float speed = avgDistance/elapsedTime;
+  Serial.println("Average speed is: ");
+  Serial.println(speed);
+  DistanceL = 0.0;//reset distance
+  DistanceR = 0.0;
+}
+
+// Motor setup and function
+  /*speed: 
+    If speed positive, goes forwards. If negative, goes backwards.
+    If turn 0, go straight. If 1, goes left (when going forward), if 2 goes right.
+    These will be reversed when the speed is less than zero.
+    If the speed is set to zero, the motor stops. Probably best if the turn is set to 0 too when this is done.
+
+    0.7 is a good speed to reach the pwm threshold, anything lower than 0.6 doesn't give the motors enough power
+  */
+
+int motor(float speed, int turn){
+  MotorAPWM.period(0.001f); // Sets frequency to 100kHz 1ms
+  MotorBPWM.period(0.001f); // Sets frequency to 100kHz
+  if (speed > 0) { // Positive, so going forwards
+    MotorADir.write(0); // Set direction to forward
+    MotorBDir.write(1);
+    if (turn == 0){ // Straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){ // Left (when going forward)
+      MotorBDir.write(1);
+      MotorADir.write(1); // Move opposite direction
+      MotorBPWM.write(abs(speed));
+      MotorAPWM.write(abs(speed));
+
+    }
+    else if (turn == 2){ // Right (when going forward)
+      MotorADir.write(0);
+      MotorBDir.write(0); // Move opposite direction
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else; // Do nothing
+  }
+
+  else  if (speed < 0) { // Negative, so going backwards
+    MotorADir.write(1); // Set directions to reverse
+    MotorBDir.write(0);
+    if (turn == 0){ // Straight
+      MotorAPWM.write(abs(speed));
+      MotorBPWM.write(abs(speed));
+    }
+    else if (turn == 1){ // Left (when going forward)
+      MotorADir.write(1);
+      MotorAPWM.write(abs(speed));
+
+    }
+    else if (turn == 2){ // Right (when going forward)
+      MotorBDir.write(0);
+      MotorBPWM.write(abs(speed));
+    }
+    else; // Do nothing
+  }
+
+  else {
+    // Not forward or back, so made to brake
+    MotorAPWM.write(0); // Set each pwm low
+    MotorBPWM.write(1);
+    // Set each motor to high Z as per datasheet
+    MotorADir.write(0);
+    MotorAPWM.write(0);
+    // Set high Z
+    MotorBDir.write(0);
+    MotorBPWM.write(0);
+  }
+
+}
+
+//Ultrasonic sensor function
+void UsSensor(){
+  trig.output(); // Sets pin to output
+  trig = 1; // Trigger the ultrasonic sensor to send a pulse for 10us
+  timer.reset();
+  wait_us(10);
+  trig = 0;
+
+  // Wait for a rising edge
+  trig.input(); // Sets pin to input
+  echo.input(); // Sets echo to input
+  while (echo==0) {};
+   // Echo high, starting timer to measure time until we get a reading
+  timer.start();
+  while (echo==1) {};
+  timer.stop();
+  DistanceForward = (timer.read_us()/58.0);  // Divide by 58 as per datasheet for conversion to cm
+  Serial.print("Distance to obstacle forward in cm: ");
+  Serial.print(DistanceForward, DEC); // Print distance in decimal
+  Serial.println();
+  delay(100); // Wait so any echoes return before sending another pulse as per datasheet reccomendation
+}
+
+//IR sensor setup and function
+
+class IR {
+  public:
+  int irSensor(char sensorNumber);
+  int measureLeft();
+  int measureRight();
+  int calibrateSensor();// Third sensor for lining up with left wall
+};
+
+int IR::irSensor(char sensorNumber) {
+  // If statements to select the left or right IR sensor
+  if (sensorNumber == 0) {
+    measureLeft();
+  }
+  else if (sensorNumber == 1) {
+    measureRight();
+  }
+  else if (sensorNumber == 2) {
+    calibrateSensor();
+  }
+  else {
+    Serial.println("Input either sensor 1 or 0"); // Error message
+  }
+}
+
+int IR::measureLeft() {
+  mux_cmd = 0x01; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
+  I2C i2c(P0_31, P0_2);              // Initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_addr = 0xEE;        // Select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // Writes the mux_cmd to the addresss mux_addr
+  // The sensor is now on bus 0, address 0x80
+
+  char distances[3];    // Array distances with 3 values
+  distances[0] = 0x5E;  // High distance
+  distances[1] = 0x5F;  // Low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  // Write register addresss to read from
+  wait_us(500000);                // Wait for sensor response
+  i2c.read(0x80, distances, 3);   // Read distance high
+
+  Serial.println("Distance to left in cm: ");
+  DistanceLeft  = (distances[0]*16.0+distances[1])/16.0/4 ; // Distance calculation, from the datasheet
+  Serial.print(DistanceLeft);
+  Serial.println();
+}
+
+int IR::measureRight() {
+  mux_cmd = 0x02;  // This selects the other IR sensor when uncommented
+  I2C i2c(P0_31, P0_2);              // Initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_addr = 0xEE;        // Select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // Writes the mux_cmd to the addresss mux_addr
+  // The sensor is now on bus 0, address 0x80
+
+  char distances[3];    // Array distances with 3 values
+  distances[0] = 0x5E;  // High distance
+  distances[1] = 0x5F;  // Low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  //Wwrite register addresss to read from
+  wait_us(500000);                // Wait for sensor response
+  i2c.read(0x80, distances, 3);   // Read distance high
+
+  Serial.println("Distance to right in cm: ");
+  DistanceRight  = (distances[0]*16.0+distances[1])/16.0/4 ; // Distance calculation from the datasheet
+  Serial.print(DistanceRight);
+  Serial.println();
+}
+
+int IR::calibrateSensor() {
+  mux_cmd = 0x03; // Defines mux_cmd as command to select a channel on the I2C mux. Addresss in hex as 1, in binary it is 0001
+  I2C i2c(P0_31, P0_2);              // Initializes i2c, uses P0_31 as SDA (for data) and P0_2 as SCL (clock)
+  const char mux_addr = 0xEE;        // Select bus 0 on mux chip
+  i2c.write(mux_addr, &mux_cmd, 1);  // Writes the mux_cmd to the addresss mux_addr
+  // The sensor is now on bus 0, address 0x80
+
+  char distances[3];    // Array distances with 3 values
+  distances[0] = 0x5E;  // High distance
+  distances[1] = 0x5F;  // Low distance
+  distances[2] = 0x00;
+  i2c.write(0x80, distances, 1);  // Write register addresss to read from
+  wait_us(500000);                // Wait for sensor response
+  i2c.read(0x80, distances, 3);   // Read distance high
+
+  Serial.println("Distance to left from calibrator in cm: ");
+  DistanceCal  = (distances[0]*16.0+distances[1])/16.0/4 ; // Distance calculation, from the datasheet
+  Serial.print(DistanceCal);
+  Serial.println();
+}
+
+
+// Robot Mapping
+
+int rx = 15; // Robot x position
+int ry = 20; // Robot y position
+int rTheta = 0; // Robot angle
+
+int occupancy_grid[30][40]; // 10cm squares so divide any distance measurement by 10, have to use int to allow for 2 to be used to track the robot position
+// Double the actual width of the grid as to account for the robot being placed in a corner. 
+
+void placeRobot() {
+  occupancy_grid[rx][ry] = 2; // Place robot in the middle of the maze to account for this
+}
+
+void polarToCartesian(int SensorDistance, int theta, int *x, int *y){ 
+  float SensorDistanceScaled = SensorDistance/10;
+  *x = (int)(SensorDistanceScaled * cos((SensorDistanceScaled/180)*PI));// Note the conversion of angles to radians
+  *y = (int)(SensorDistanceScaled * sin((theta/180)*PI));
+}
+
+void updateRobotPosition() {
+  measureDistanceLeft();
+  measureDistanceRight();
+  float totalDistance = (DistanceL + DistanceR)/2; // Similar error correction to measureSpeed
+  float newRTheta = (DistanceR - DistanceL)/14; // Angle that robot moves around, 14cm between wheels
+  rTheta = rTheta + newRTheta;
+
+  rx = (int)(totalDistance*cos(rTheta)); // Convert to polar with new values
+  ry = (int)(totalDistance*sin(rTheta));
+
+  occupancy_grid[rx][ry] = 2;
+}
+
+void updateOccupancyGrid() {
+  int x, y;
+
+  // Use the robot's x position for the x value for the ultrasonic sensor, increment for each movement
+  x = x + rx;
+  polarToCartesian(DistanceForward, 90, &x, &y); // & to pass by reference
+  Serial.println(x);
+  Serial.println(y);
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) { // If within the bounds of grid
+    occupancy_grid[y][x] = 1; // Mark as obstacle
+  }
+
+  if (DistanceLeft >= 63) { // If out of range
+    DistanceLeft = 1000; // Make it a value too large for anything to be written to the grid
+  }
+    else;
+  // Use the robot's y position for the y value for the IR sensors
+  y = y + ry;
+  polarToCartesian(DistanceLeft, 180, &x, &y);
+  Serial.println(x);
+  Serial.println(y);
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {
+    occupancy_grid[y][x] = 1;
+  }
+
+  if (DistanceRight >= 63) { // If out of range
+    DistanceRight = 1000; // Make it a value too large for anything to be written to the grid
+  }
+    else;
+  // Use the robot's y position for the y value for the IR sensors
+  y = y + ry;
+  polarToCartesian(DistanceRight, 0, &x, &y);
+  Serial.println(x);
+  Serial.println(y);
+  if (x >= 0 && x < 30 && y >= 0 && y < 40) {
+    occupancy_grid[y][x] = 1;
+  }
+}
+
+void loop() {
+
+
+switch (currentState) {
+
+  IR irSensor;  
+
+  case STATE_START:
+    delay(1000);
+    Serial.println("State: start");
+    LED(4);
+    LED(3);
+    motor(0.7, 0);
+    delay(1000);
+    motor(0, 0); // Move forward
+
+    delay(1200);
+
+    motor(-0.7, 0);
+    delay(1000);
+    motor(0, 0); // Reverse
+
+    delay(1200);
+
+    motor(0.7, 1); 
+    delay(664);
+    motor(0, 0); // Move left
+
+    delay(1200);
+
+    motor(0.7, 2);
+    delay(664);
+    motor(0, 0); // Move right
+
+    delay(1200);
+
+
+    motor(0.7, 2);
+    delay(664);
+    motor(0, 0); // Move right
+
+    delay(1200);
+
+    motor(0.7, 1); 
+    delay(664);
+    motor(0, 0); // Move left
+
+    delay(1500);
+    Serial.println("Turning function demonstrated, starting maze navigation");
+
+    currentState = STATE_FORWARD;
+    break;
+
+  case STATE_STOP:
+    Serial.println("State: stop");
+    LED(2);
+    motor(0, 0); //Stop motor
+    if ((rx == 40 || rx == 0) && (ry == 30 || ry == 0)) {// At end of first run, gone either forward or backward
+      LED(6);
+      motor(-0.7, 2);
+      delay(1350);
+      motor(0, 0);// Turn around
+      currentState = STATE_FORWARD;
+    }
+    else {
+      // Must be back at the start or failed
+      if (help = 1) {
+        Serial.println("RONALD is broken :(");
+        for (int i = 0; i < 10; i++) {
+          LED(5);
+          delay(200);
+          LED(1);
+          delay(200);
+      }
+      }
+      else {
+      //Finish Status
+      for (int i = 0; i < 10; i++) {
+        LED(6);
+        delay(200);
+        LED(1);
+        delay(200);
+        }
+      //Press button for reset
+      }
+    }
+    break;
+
+  case STATE_FORWARD:
+    Serial.println("State: forward");
+    LED(3);
+    UsSensor();
+    travel = DistanceForward*27; // Move forward
+    motor(0.7, 0);
+    delay(travel);
+    motor(0, 0);
+    updateRobotPosition();
+    currentState = STATE_CHECK_ORIENTATION;
+    break;
+
+  case STATE_REVERSE:
+    Serial.println("State: reverse");
+    LED(5);
+    motor(-0.7, 0);
+    delay(500);
+    motor(0, 0); // Reverse
+    currentState = STATE_CHECK;
+    break;
+  
+  case STATE_LEFT:
+    Serial.println("State: turn left");
+    LED(7);
+    motor(0.7, 1); // Turn left
+    delay(664);
+    motor(0, 0);
+    UsSensor();
+    travel = DistanceForward*10; // Move forward as close to wall as possible
+    motor(0.7, 0);
+    delay(travel);
+    motor(0, 0); 
+
+    motor(0.7, 2);
+    delay(664);
+    motor(0, 0); // Move back to forward
+    EncCountA = 0;
+    EncCountB = 0;
+    updateRobotPosition();
+    updateOccupancyGrid();
+    currentState = STATE_CHECK_ORIENTATION;
+    break;
+
+  case STATE_RIGHT:
+    Serial.println("State: turn right");
+    LED(7);
+    motor(0.7, 2); // Turn right
+    delay(664);
+    motor(0, 0);
+    UsSensor();
+    travel = DistanceForward*10; // Move forward as close to wall as possible
+    motor(0.7, 0);
+    delay(travel); // Move realtive to distance in front
+    motor(0, 0); 
+
+    motor(0.7, 1);
+    delay(664);
+    motor(0, 0); // Move back to forward orientation
+    EncCountA = 0;
+    EncCountB = 0;
+
+    UsSensor();
+    if (DistanceForward >= 30) {  // Check nothing is in front
+      travel = DistanceForward*10; // Move further forward to follow the wall
+      motor(0.7, 0);
+      delay(travel);
+      motor(0, 0); 
+    }
+    else;
+    
+    updateRobotPosition();
+    updateOccupancyGrid();
+    currentState = STATE_CHECK;
+    break;
+
+  case STATE_CHECK:
+    Serial.println("State: check obstacles");
+    LED(1);
+    if ((rx == 40 || rx == 0) && (ry == 30 || ry == 0)) { // Check map position for end of maze
+      //Recognise it has reached a goal, either first run or second
+      currentState = STATE_STOP; 
+    }
+    else {
+      UsSensor();
+      irSensor.irSensor(0); // Selects left sensor
+      irSensor.irSensor(1); // Selects right sensor
+      updateOccupancyGrid(); // Use that data to buld map
+      /*print occupancy grid
+      for (int row = 0; row < 30; row++) {   // Loop through each row
+        for (int col = 0; col < 40; col++) { // Loop through each column
+            Serial.print(occupancy_grid[row][col]); // Print each cell
+        }
+        Serial.println();  // New line after each row
+      }  */
+
+      // Left wall following - covering all scenarios
+      if (DistanceLeft >= 30 && DistanceForward >= 30) { // 000 and 001, need to find 
+        Serial.println("Finding wall");
+        currentState = STATE_LEFT;
+      }
+      else if (DistanceLeft >= 30 && DistanceForward <= 30) { // 010, 011, need to find wall with object in front
+        Serial.println("Finding wall, object in front");
+        currentState = STATE_LEFT;
+      }
+      else if (DistanceLeft <= 30 && DistanceForward >= 30) { // 100, 101, wall found
+        Serial.println("Wall found");
+        currentState = STATE_FORWARD;
+      }
+      else if (DistanceLeft <= 30 && DistanceForward <= 30) { // 110
+        Serial.println("Wall found but obstacle in front");
+        currentState = STATE_RIGHT;
+      }
+      else if (DistanceLeft <= 20 && DistanceForward <= 20 && DistanceRight <= 20) { // 111
+        Serial.println("Stuck in corner");
+        currentState = STATE_REVERSE;
+      }
+      else { // A scenario not programmed is found
+        Serial.println("Something has gone wrong");
+        help = 1;
+        currentState = STATE_STOP;
+      }
+    }
+    break;
+
+  case STATE_CHECK_ORIENTATION:
+    //Maintain range to the wall 
+    LED(8);
+    UsSensor();
+    irSensor.irSensor(0); // Selects left sensor
+    irSensor.irSensor(2); //Selects calibration sensor
+
+    if (((DistanceLeft+1) == DistanceCal) || ((DistanceLeft-1) == DistanceCal) || (DistanceLeft == DistanceCal)) { //+-1 to account for difference in sensor readings
+      Serial.println("Sensors same distance, in line with wall");
+      currentState = STATE_CHECK;
+    }
+    else if (DistanceLeft > DistanceCal) {
+      calibrationDist = DistanceLeft - DistanceCal;
+      motor(0.7, 2); // Turn right
+      delay(calibrationDist);
+      motor(0, 0);
+      currentState = STATE_CHECK_ORIENTATION;
+    }
+    else {
+      calibrationDist = DistanceCal - DistanceLeft;
+      motor(0.7, 1); // Turn left
+      delay(calibrationDist);
+      motor(0, 0);      
+      currentState = STATE_CHECK_ORIENTATION;
+    }
+    currentState = STATE_CHECK;
+    break;
+
+}
+
+}
