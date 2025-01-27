@@ -474,8 +474,8 @@ switch (currentState) {
   case STATE_START:
     delay(1000);
     Serial.println("State: start");
-    LED(4);
-    LED(3);
+    LED(4); // Green Flash
+    LED(3); // Green
     motor(0.7, 0);
     delay(1000);
     motor(0, 0); // Move forward
@@ -519,7 +519,7 @@ switch (currentState) {
 
   case STATE_STOP:
     Serial.println("State: stop");
-    LED(2);
+    LED(2); // Red
     motor(0, 0); //Stop motor
     if ((rx == 40 || rx == 0) && (ry == 30 || ry == 0)) {// At end of first run, gone either forward or backward
       LED(6);
@@ -554,9 +554,9 @@ switch (currentState) {
 
   case STATE_FORWARD:
     Serial.println("State: forward");
-    LED(3);
+    LED(3); // Green
     UsSensor();
-    travel = DistanceForward*27; // Move forward
+    travel = DistanceForward*29; // Move forward
     motor(0.7, 0);
     delay(travel);
     motor(0, 0);
@@ -566,7 +566,7 @@ switch (currentState) {
 
   case STATE_REVERSE:
     Serial.println("State: reverse");
-    LED(5);
+    LED(5); // Yellow
     motor(-0.7, 0);
     delay(500);
     motor(0, 0); // Reverse
@@ -575,12 +575,12 @@ switch (currentState) {
   
   case STATE_LEFT:
     Serial.println("State: turn left");
-    LED(7);
+    LED(7); // Cyan
     motor(0.7, 1); // Turn left
     delay(664);
     motor(0, 0);
     UsSensor();
-    travel = DistanceForward*10; // Move forward as close to wall as possible
+    travel = DistanceForward*13; // Move forward as close to wall as possible
     motor(0.7, 0);
     delay(travel);
     motor(0, 0); 
@@ -597,12 +597,12 @@ switch (currentState) {
 
   case STATE_RIGHT:
     Serial.println("State: turn right");
-    LED(7);
+    LED(7); // Cyan
     motor(0.7, 2); // Turn right
     delay(664);
     motor(0, 0);
     UsSensor();
-    travel = DistanceForward*10; // Move forward as close to wall as possible
+    travel = DistanceForward*13; // Move forward as close to wall as possible
     motor(0.7, 0);
     delay(travel); // Move realtive to distance in front
     motor(0, 0); 
@@ -624,12 +624,12 @@ switch (currentState) {
     
     updateRobotPosition();
     updateOccupancyGrid();
-    currentState = STATE_CHECK;
+    currentState = STATE_CHECK_ORIENTATION;
     break;
 
   case STATE_CHECK:
     Serial.println("State: check obstacles");
-    LED(1);
+    LED(1); // White
     if ((rx == 40 || rx == 0) && (ry == 30 || ry == 0)) { // Check map position for end of maze
       //Recognise it has reached a goal, either first run or second
       currentState = STATE_STOP; 
@@ -677,8 +677,8 @@ switch (currentState) {
     break;
 
   case STATE_CHECK_ORIENTATION:
-    //Maintain range to the wall 
-    LED(8);
+    // Maintain range to the wall 
+    LED(8); // Blue
     UsSensor();
     irSensor.irSensor(0); // Selects left sensor
     irSensor.irSensor(2); //Selects calibration sensor
